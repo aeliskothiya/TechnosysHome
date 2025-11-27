@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "nodemon server.js",
-    "server": "nodemon server.js"
+    "server": "nodemon server.js",
+    "render-build": "./render-build.sh"
   },
   "author": "",
   "license": "ISC",
@@ -41,5 +42,8 @@
     "sharp": "^0.34.5",
     "socket.io": "^4.8.1",
     "twilio": "^5.9.0"
+  },
+  "puppeteer": {
+    "executablePath": "/usr/bin/chromium"
   }
 }

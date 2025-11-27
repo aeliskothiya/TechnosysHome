@@ -271,9 +271,8 @@ export const togglePackageStatus = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `Package ${
-        subscriptionPackage.isActive ? "activated" : "deactivated"
-      } successfully`,
+      message: `Package ${subscriptionPackage.isActive ? "activated" : "deactivated"
+        } successfully`,
       data: subscriptionPackage,
     });
   } catch (error) {
@@ -807,8 +806,11 @@ export const verifyRazorpayPayment = async (req, res) => {
             const puppeteerModule = await import("puppeteer");
             const puppeteer = puppeteerModule.default || puppeteerModule;
             const browser = await puppeteer.launch({
-              args: ["--no-sandbox", "--disable-setuid-sandbox"],
+              executablePath: "/usr/bin/chromium",
+              headless: "new",
+              args: ["--no-sandbox", "--disable-setuid-sandbox"]
             });
+
             const page = await browser.newPage();
             await page.setContent(html, { waitUntil: "networkidle0" });
             await page.pdf({
@@ -1048,11 +1050,9 @@ export const verifyRazorpayPayment = async (req, res) => {
                 `<p style="margin: 0;"><strong>Invoice Details</strong></p>` +
                 `<ul style="margin: 8px 0 0 16px; padding: 0;">` +
                 `<li><strong>Invoice ID:</strong> ${paymentRecord._id}</li>` +
-                `<li><strong>Payment ID:</strong> ${
-                  paymentRecord.ProviderPaymentId || ""
+                `<li><strong>Payment ID:</strong> ${paymentRecord.ProviderPaymentId || ""
                 }</li>` +
-                `<li><strong>Package:</strong> ${
-                  subscriptionPackage?.name || ""
+                `<li><strong>Package:</strong> ${subscriptionPackage?.name || ""
                 }</li>` +
                 `<li><strong>Amount:</strong> ${amountDisplay}</li>` +
                 `</ul>` +
