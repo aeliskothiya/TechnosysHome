@@ -161,8 +161,19 @@ export function LoginCustomer() {
         setTimeLeft(0);
         setCanResendOtp(false);
         toast.success("Login successful!");
-        navigate("/customer");
-      } else {
+
+        // 🔥 CHECK USER TYPE FROM BACKEND AND REDIRECT CORRECTLY
+        if (data.data.userType === "customer") {
+          navigate("/customer");
+        } else if (data.data.userType === "technician") {
+          navigate("/technician/dashboard");
+        } else if (data.data.userType === "admin") {
+          navigate("/admin/dashboard");
+        } else {
+          navigate("/"); // fallback
+        }
+      }
+      else {
         setError(data.message || "Invalid OTP");
         toast.error(data.message || "Invalid OTP");
       }

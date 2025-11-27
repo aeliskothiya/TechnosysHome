@@ -811,7 +811,7 @@ export const Login = () => {
         <div className="hidden md:flex md:w-2/5 bg-gradient-to-br from-indigo-600 via-purple-600 to-purple-700 p-3 flex-col justify-center items-center text-white relative overflow-hidden">
           {/* Background Pattern */}
           <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-white to-transparent"></div>
+            <div className="absolute top-0 left-0 w-full h-full bg-linear-to-br from-white to-transparent"></div>
           </div>
           
           <div className="relative z-10 text-center mb-8">
