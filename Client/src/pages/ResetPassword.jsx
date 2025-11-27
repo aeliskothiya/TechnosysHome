@@ -7,8 +7,9 @@ import { toast } from 'react-toastify';
 
 export const ResetPassword = () => {
   const { backendUrl: contextBackendUrl } = useContext(AppContext);
- const backendUrl = import.meta.env.VITE_BACKEND_URL;
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || contextBackendUrl;
   axios.defaults.withCredentials = true;
+
 
   const navigate = useNavigate();
 
@@ -86,7 +87,7 @@ export const ResetPassword = () => {
   // OTP submit
   const onSubmitOTP = (e) => {
     e.preventDefault();
-    
+
     if (isOtpExpired) {
       toast.error("OTP has expired. Please request a new one.");
       return;
@@ -132,18 +133,18 @@ export const ResetPassword = () => {
   // New password submit
   const onSubmitNewPassword = async (e) => {
     e.preventDefault();
-    
+
     // Validation
     if (!email || !otp || !newPassword || !confirmPassword) {
       toast.error("All fields are required");
       return;
     }
-    
+
     if (newPassword !== confirmPassword) {
       toast.error("Passwords do not match");
       return;
     }
-    
+
     if (newPassword.length < 6) {
       toast.error("Password must be at least 6 characters long");
       return;
@@ -156,7 +157,7 @@ export const ResetPassword = () => {
         otp,
         newPassword
       });
-      
+
       if (data.success) {
         toast.success(data.message);
         navigate('/login');
@@ -219,7 +220,7 @@ export const ResetPassword = () => {
           <p className="text-center mb-2 text-indigo-300">
             Enter the 6-digit code sent to <span className="font-medium">{email}</span>
           </p>
-          
+
           {/* Timer display */}
           <div className="text-center mb-4">
             <p className={`text-sm font-medium ${timeLeft <= 30 ? 'text-red-400' : 'text-indigo-300'}`}>
@@ -275,7 +276,7 @@ export const ResetPassword = () => {
         >
           <h1 className="text-white text-2xl font-semibold text-center mb-4">Set New Password</h1>
           <p className="text-center mb-6 text-indigo-300">Create a new password for your account.</p>
-          
+
           <div className="mb-4 flex items-center gap-3 w-full px-5 py-2.5 rounded-full bg-[#333A5C] relative">
             <img src={assets.lock_icon} alt="" className="w-4 h-4" />
             <input
@@ -305,7 +306,7 @@ export const ResetPassword = () => {
               )}
             </button>
           </div>
-          
+
           <div className="mb-6 flex items-center gap-3 w-full px-5 py-2.5 rounded-full bg-[#333A5C] relative">
             <img src={assets.lock_icon} alt="" className="w-4 h-4" />
             <input
@@ -335,7 +336,7 @@ export const ResetPassword = () => {
               )}
             </button>
           </div>
-          
+
           <button
             type="submit"
             disabled={loading}
