@@ -31,6 +31,7 @@ import { fileURLToPath } from "url";
 import "./config/passport.js";
 
 const app = express();
+app.set("trust proxy", 1);
 const port = process.env.PORT || 4000;
 
 // Get __dirname for ES Modules
@@ -44,7 +45,7 @@ connectdb();
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5175",
-  "https://technosyshome-client.onrender.com"
+   process.env.FRONTEND_URL
 ];
 
 /* ------------------------------
@@ -132,14 +133,10 @@ app.use("/uploads", (req, res, next) => {
 app.use(
   "/uploads",
   express.static(path.join(__dirname, "uploads"), {
-    setHeaders(res, filePath, stat, req) {
-      const origin = req.headers.origin;
-      if (allowedOrigins.includes(origin)) {
-        res.setHeader("Access-Control-Allow-Origin", origin);
-        res.setHeader("Access-Control-Allow-Credentials", "true");
-      }
+    setHeaders: (res, filePath) => {
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
 
-      // Cache images
+      // Image caching
       if (
         filePath.endsWith(".jpg") ||
         filePath.endsWith(".jpeg") ||
@@ -148,12 +145,10 @@ app.use(
       ) {
         res.setHeader("Cache-Control", "public, max-age=86400");
       }
-      if (filePath.endsWith(".webp")) {
-        res.setHeader("Content-Type", "image/webp");
-      }
     },
   })
 );
+
 
 // Session (needed for Google OAuth)
 app.use(
