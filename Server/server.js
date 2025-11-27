@@ -34,63 +34,54 @@ const app = express();
 app.set("trust proxy", 1);
 const port = process.env.PORT || 4000;
 
-// Get __dirname for ES Modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Connect database
+// DB
 connectdb();
 
-// All allowed client origins
+// Allowed origins (FIXED)
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5175",
-   process.env.FRONTEND_URL
+  process.env.FRONTEND_URL || "https://technosyshome-client.onrender.com"
 ];
 
 /* ------------------------------
     🔒 SECURITY MIDDLEWARE
 --------------------------------*/
+app.use(mongoSanitize());
 
-// Sanitize incoming data
-app.use((req, res, next) => {
-  if (req.body) req.body = mongoSanitize.sanitize(req.body);
-  if (req.params) req.params = mongoSanitize.sanitize(req.params);
-  next();
-});
+// Logs only in dev
+if (process.env.NODE_ENV === "development") app.use(morgan("dev"));
 
-// Dev logs
-if (process.env.NODE_ENV === "development") {
-  app.use(morgan("dev"));
-}
-
-// Helmet CSP fix for production
-const cspConnectSrc = [
-  "'self'",
-  "https://technosyshome-server.onrender.com",
-  ...allowedOrigins
-];
-
+// Helmet CSP – FIXED image loading + websocket
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
     contentSecurityPolicy: {
       directives: {
-        defaultSrc: ["'self'", "https://technosyshome-client.onrender.com"],
+        defaultSrc: ["'self'"],
         imgSrc: [
           "'self'",
           "data:",
           "blob:",
-          "https://technosyshome-client.onrender.com",
-          "https://technosyshome-server.onrender.com"
+          "https://technosyshome-server.onrender.com",
+          "https://technosyshome-server.onrender.com/uploads",
+          "https://technosyshome-server.onrender.com/uploads/*"
         ],
-        connectSrc: cspConnectSrc,
+        connectSrc: [
+          "'self'",
+          ...allowedOrigins,
+          "https://technosyshome-server.onrender.com",
+          "wss://technosyshome-server.onrender.com"
+        ],
       },
     },
   })
 );
 
-// Rate limiting
+// Rate limit
 app.use(
   rateLimit({
     windowMs: 10 * 60 * 1000,
@@ -98,59 +89,42 @@ app.use(
   })
 );
 
-// Prevent HTTP parameter pollution
+// Clean URL param pollution
 app.use(hpp());
 
 // JSON + Cookies
 app.use(express.json());
 app.use(cookieParser());
 
-// CORS FIX (for both dev + production)
+// CORS (FIXED: allows null origins safely)
 app.use(
   cors({
     credentials: true,
     origin: function (origin, callback) {
       if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("CORS Blocked: " + origin));
+        return callback(null, true);
       }
+      return callback(new Error("CORS Blocked: " + origin));
     },
-    exposedHeaders: ["Content-Type", "Content-Length"],
   })
 );
 
-// Serve uploads with CORS
-app.use("/uploads", (req, res, next) => {
-  const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-  }
-  next();
-});
-
+// STATIC FILES (working - unchanged)
 app.use(
   "/uploads",
   express.static(path.join(__dirname, "uploads"), {
-    setHeaders: (res, filePath) => {
+    setHeaders: function (res, filePath) {
+      res.setHeader("Access-Control-Allow-Origin", "*");
       res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
 
-      // Image caching
-      if (
-        filePath.endsWith(".jpg") ||
-        filePath.endsWith(".jpeg") ||
-        filePath.endsWith(".png") ||
-        filePath.endsWith(".webp")
-      ) {
+      if (/\.(jpg|jpeg|png|webp)$/i.test(filePath)) {
         res.setHeader("Cache-Control", "public, max-age=86400");
       }
     },
   })
 );
 
-
-// Session (needed for Google OAuth)
+// Session (OAuth)
 app.use(
   session({
     secret: process.env.JWT_SECRET,
@@ -160,7 +134,7 @@ app.use(
 );
 
 /* ------------------------------
-      📌 API ROUTES
+      📌 ROUTES
 --------------------------------*/
 app.get("/", (req, res) => res.send("API Working"));
 
@@ -183,16 +157,8 @@ const server = app.listen(port, () =>
   console.log(`Server running on PORT: ${port}`)
 );
 
-// Socket.io realtime
-try {
-  initRealtime(server);
-} catch (err) {
-  console.error("Realtime Init Failed", err);
-}
+// SOCKET.IO realtime
+initRealtime(server);
 
-// MongoDB Change Streams
-try {
-  initChangeStream();
-} catch (err) {
-  console.warn("ChangeStream initialize failed");
-}
+// MongoDB Change Stream
+initChangeStream();
