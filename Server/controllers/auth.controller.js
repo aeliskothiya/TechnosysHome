@@ -727,33 +727,56 @@ export const sendMobileOtp = async (req, res) => {
     const { mobile } = req.body;
 
     if (!mobile) {
-      return res.status(400).json({ success: false, message: "Mobile number is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Mobile number is required" });
     }
 
     if (mobile.length !== 10 || !/^\d+$/.test(mobile)) {
-      return res.status(400).json({ success: false, message: "Enter valid 10-digit mobile number" });
+      return res.status(400).json({
+        success: false,
+        message: "Enter valid 10-digit mobile number",
+      });
     }
 
-    // Always dev mode → skip Twilio completely
-    const otp = "123456";   // fixed OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpiry = new Date(Date.now() + 2 * 60 * 1000);
 
+    // Upsert OTP record for this mobile
     await TempOtpVerification.findOneAndUpdate(
       { contactType: "mobile", contactValue: mobile },
       { otp, otpExpiry, isVerified: false },
       { upsert: true, new: true }
     );
 
-    return res.status(200).json({
-      success: true,
-      message: "OTP sent successfully (DEV MODE - No Twilio)",
-      otp,  // visible
-      mobile,
-    });
+    // ✅ NEW: control SMS by USE_REAL_SMS flag instead of NODE_ENV
+    const useRealSms = process.env.USE_REAL_SMS === "true";
 
+    if (useRealSms && process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+      // Real SMS via Twilio
+      await twilioClient.messages.create({
+        body: `Your Technosys verification code is: ${otp}. This OTP is valid for 2 minutes.`,
+        from: process.env.TWILIO_PHONE_NUMBER,
+        to: `+91${mobile}`,
+      });
+      return res
+        .status(200)
+        .json({ success: true, message: "OTP sent successfully", mobile });
+    } else {
+      // ✅ Dev / fallback mode – no Twilio, just return OTP
+      console.log("Technician OTP (Dev Mode):", otp);
+      return res.status(200).json({
+        success: true,
+        message: "OTP sent successfully (Dev Mode)",
+        otp,
+        mobile,
+      });
+    }
   } catch (error) {
     console.error("Send mobile OTP error:", error);
-    return res.status(500).json({ success: false, message: "Internal server error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal server error" });
   }
 };
 
@@ -1140,39 +1163,68 @@ export const resetPassword = async (req, res) => {
 
 
 export const sendCustomerMobileOtp = async (req, res) => {
+  console.log("Customer OTP request body:", req.body);
   try {
     const { mobile } = req.body;
 
     if (!mobile) {
-      return res.status(400).json({ success: false, message: "Mobile number required" });
+      return res.status(400).json({
+        success: false,
+        message: "Mobile number is required"
+      });
     }
 
     if (mobile.length !== 10 || !/^\d+$/.test(mobile)) {
-      return res.status(400).json({ success: false, message: "Enter valid 10-digit mobile number" });
+      return res.status(400).json({
+        success: false,
+        message: "Enter valid 10-digit mobile number"
+      });
     }
 
-    // Always dev mode → skip Twilio
-    const otp = "123456";
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpiry = new Date(Date.now() + 2 * 60 * 1000);
 
+    // Upsert OTP record for this mobile
     await TempOtpVerification.findOneAndUpdate(
       { contactType: "mobile", contactValue: mobile },
       { otp, otpExpiry, isVerified: false },
       { upsert: true, new: true }
     );
 
-    return res.status(200).json({
-      success: true,
-      message: "OTP sent (DEV MODE - No Twilio)",
-      otp,
-      mobile
-    });
+    // ✅ NEW flag
+    const useRealSms = process.env.USE_REAL_SMS === "true";
 
+    if (useRealSms && process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+      // Real SMS
+      await twilioClient.messages.create({
+        body: `Your Technosys verification code is: ${otp}. This OTP is valid for 2 minutes.`,
+        from: process.env.TWILIO_PHONE_NUMBER,
+        to: `+91${mobile}`,
+      });
+      return res.status(200).json({
+        success: true,
+        message: "OTP sent successfully",
+        mobile
+      });
+    } else {
+      // ✅ Dev / fallback mode, same for localhost + Render
+      console.log("Customer OTP (Dev Mode):", otp);
+      return res.status(200).json({
+        success: true,
+        message: "OTP sent successfully (Dev Mode)",
+        otp,
+        mobile,
+      });
+    }
   } catch (error) {
     console.error("Send customer mobile OTP error:", error);
-    return res.status(500).json({ success: false, message: "Internal server error" });
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
   }
 };
+
 
 
 // Verify Mobile OTP for Customer

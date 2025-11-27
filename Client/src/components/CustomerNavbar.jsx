@@ -13,11 +13,11 @@ import axios from "axios";
 import { AppContext } from "../context/AppContext";
 import { assets } from "../assets/assets";
 
-const backendUrl = import.meta.env.VITE_BACKEND_URL;
+
 
 const CustomerNavbar = () => {
   const navigate = useNavigate();
-  const { userData, setIsLoggedIn, setUserData } = useContext(AppContext);
+  const { userData, setIsLoggedIn, setUserData, backendUrl } = useContext(AppContext);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
