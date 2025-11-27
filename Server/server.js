@@ -4,11 +4,12 @@ import "dotenv/config";
 import cookieParser from "cookie-parser";
 import session from "express-session";
 
-import mongoSanitize from "express-mongo-sanitize";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import hpp from "hpp";
 import morgan from "morgan";
+
+import sanitizeHtml from "sanitize-html";   // ✔ SAFE sanitizer for Express 5
 
 import connectdb from "./config/mongodb.js";
 import { initRealtime } from "./config/realtime.js";
@@ -37,25 +38,55 @@ const port = process.env.PORT || 4000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// DB
+/* ------------------------------------------------
+   📌 CONNECT DB
+-------------------------------------------------*/
 connectdb();
 
-// Allowed origins (FIXED)
+/* ------------------------------------------------
+   🌍 Allowed Frontend Origins
+-------------------------------------------------*/
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5175",
   process.env.FRONTEND_URL || "https://technosyshome-client.onrender.com"
 ];
 
-/* ------------------------------
+/* ------------------------------------------------
+   🛡 SAFE SANITIZER (Express 5 Compatible)
+-------------------------------------------------*/
+function sanitizeObject(obj) {
+  if (!obj) return;
+
+  for (let key in obj) {
+    if (typeof obj[key] === "string") {
+      obj[key] = sanitizeHtml(obj[key], {
+        allowedTags: [],
+        allowedAttributes: {},
+      });
+    } else if (typeof obj[key] === "object" && obj[key] !== null) {
+      sanitizeObject(obj[key]);
+    }
+  }
+}
+
+app.use((req, res, next) => {
+  sanitizeObject(req.body);
+  sanitizeObject(req.query);
+  sanitizeObject(req.params);
+  next();
+});
+
+/* ------------------------------------------------
     🔒 SECURITY MIDDLEWARE
---------------------------------*/
-app.use(mongoSanitize());
+-------------------------------------------------*/
 
 // Logs only in dev
-if (process.env.NODE_ENV === "development") app.use(morgan("dev"));
+if (process.env.NODE_ENV === "development") {
+  app.use(morgan("dev"));
+}
 
-// Helmet CSP – FIXED image loading + websocket
+// Helmet CSP (Images + WS Allowed)
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -89,27 +120,32 @@ app.use(
   })
 );
 
-// Clean URL param pollution
+// Prevent URL pollution
 app.use(hpp());
 
 // JSON + Cookies
 app.use(express.json());
 app.use(cookieParser());
 
-// CORS (FIXED: allows null origins safely)
+/* ------------------------------------------------
+   🟢 CORS FIX
+-------------------------------------------------*/
 app.use(
   cors({
     credentials: true,
     origin: function (origin, callback) {
       if (!origin || allowedOrigins.includes(origin)) {
-        return callback(null, true);
+        callback(null, true);
+      } else {
+        callback(new Error("CORS Blocked: " + origin));
       }
-      return callback(new Error("CORS Blocked: " + origin));
     },
   })
 );
 
-// STATIC FILES (working - unchanged)
+/* ------------------------------------------------
+   📁 STATIC FILES (UPLOADS)
+-------------------------------------------------*/
 app.use(
   "/uploads",
   express.static(path.join(__dirname, "uploads"), {
@@ -124,7 +160,9 @@ app.use(
   })
 );
 
-// Session (OAuth)
+/* ------------------------------------------------
+   🔐 SESSION (OAuth)
+-------------------------------------------------*/
 app.use(
   session({
     secret: process.env.JWT_SECRET,
@@ -133,9 +171,9 @@ app.use(
   })
 );
 
-/* ------------------------------
-      📌 ROUTES
---------------------------------*/
+/* ------------------------------------------------
+   📌 API ROUTES
+-------------------------------------------------*/
 app.get("/", (req, res) => res.send("API Working"));
 
 app.use("/api/auth", authRouter);
@@ -150,15 +188,19 @@ app.use("/api/admin-setup", adminCreationRoute);
 app.use("/api/customer-profile", customerProfileRoutes);
 app.use("/api/admin/customers", adminCustomerListRoute);
 
-/* ------------------------------
-      🚀 START SERVER
---------------------------------*/
+/* ------------------------------------------------
+   🚀 START SERVER
+-------------------------------------------------*/
 const server = app.listen(port, () =>
   console.log(`Server running on PORT: ${port}`)
 );
 
-// SOCKET.IO realtime
+/* ------------------------------------------------
+   ⚡ SOCKET.IO
+-------------------------------------------------*/
 initRealtime(server);
 
-// MongoDB Change Stream
+/* ------------------------------------------------
+   🔄 MongoDB Change Stream
+-------------------------------------------------*/
 initChangeStream();
