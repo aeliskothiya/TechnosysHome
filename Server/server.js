@@ -37,7 +37,12 @@ const __dirname = path.dirname(__filename);
 
 connectdb();
 
-const allowedOrigins = ['http://localhost:5173', 'http://localhost:5175'];
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5175',
+  'https://technosyshome-client.onrender.com'
+];
+
 
 // Sanitize data for mongoose injection
 // app.use(mongoSanitize());
@@ -52,7 +57,13 @@ if (process.env.NODE_ENV === "development") {
 }
 // Set Security Headers with configured CSP
 // Build connectSrc for CSP from allowedOrigins + backend
-const cspConnectSrc = ["'self'", `http://localhost:${port}`, ...allowedOrigins];
+const cspConnectSrc = [
+  "'self'",
+  `http://localhost:${port}`,
+  "https://technosyshome-server.onrender.com",
+  ...allowedOrigins
+];
+
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -99,21 +110,22 @@ app.use('/uploads', (req, res, next) => {
 
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
-  setHeaders: (res, path) => {
-    // Set CORS headers for static files
-    res.setHeader('Access-Control-Allow-Origin', allowedOrigins);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  setHeaders: (res, path, req) => {
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
     
-    // Cache control for better performance
     if (path.endsWith('.jpg') || path.endsWith('.png') || path.endsWith('.jpeg') || path.endsWith('.webp')) {
-      res.setHeader('Cache-Control', 'public, max-age=86400'); // 1 day cache for images
-      // Add correct MIME type for WebP
+      res.setHeader('Cache-Control', 'public, max-age=86400');
       if (path.endsWith('.webp')) {
         res.setHeader('Content-Type', 'image/webp');
       }
     }
   }
 }));
+
 
 
 // Needed for Passport during the OAuth handshake
