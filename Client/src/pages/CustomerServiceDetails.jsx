@@ -5,21 +5,23 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Star, ArrowLeft } from "lucide-react";
 import { AppContext } from "../context/AppContext";
 
-const CustomerServiceDetails = () => {
-  const { id } = useParams();
-  const navigate = useNavigate();
 
-  // Get backend URL from context
-  const { backendUrl, isLoggedIn } = useContext(AppContext);
+
+
+const CustomerServiceDetails = () => {
+  const { id } = useParams(); // service id
+  const navigate = useNavigate();
+  const { isLoggedIn,backendUrl } = useContext(AppContext);
 
   const [service, setService] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Fetch service details
   useEffect(() => {
     const fetchDetails = async () => {
       try {
         const { data } = await axios.get(
-          `/api/sub-service-categories/${id}`
+          `${backendUrl}/api/sub-service-categories/${id}`
         );
         setService(data.subCategory || data.data);
       } catch (err) {
@@ -48,6 +50,7 @@ const CustomerServiceDetails = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Back button */}
       <div className="p-4">
         <button
           onClick={() => navigate(-1)}
@@ -57,6 +60,7 @@ const CustomerServiceDetails = () => {
         </button>
       </div>
 
+      {/* Banner */}
       <div className="w-full h-64 md:h-80 bg-gray-200 relative">
         <img
           src={`${backendUrl}${service.image}`}
@@ -69,7 +73,9 @@ const CustomerServiceDetails = () => {
         </h1>
       </div>
 
+      {/* Content */}
       <div className="max-w-4xl mx-auto px-4 py-8">
+        {/* Title + Price */}
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800">{service.name}</h2>
           <div className="text-2xl font-semibold text-sky-700">
@@ -77,6 +83,7 @@ const CustomerServiceDetails = () => {
           </div>
         </div>
 
+        {/* Ratings */}
         <div className="flex items-center gap-2 mb-6">
           <Star className="text-yellow-500" size={20} />
           <Star className="text-yellow-500" size={20} />
@@ -86,6 +93,7 @@ const CustomerServiceDetails = () => {
           <span className="text-gray-600 ml-2 text-sm">(423 reviews)</span>
         </div>
 
+        {/* Description */}
         <div className="bg-white p-6 rounded-xl shadow mb-6">
           <h3 className="text-lg font-semibold mb-2">Service Description</h3>
           <p className="text-gray-600 leading-relaxed">
@@ -93,6 +101,28 @@ const CustomerServiceDetails = () => {
           </p>
         </div>
 
+        {/* What's Included */}
+        <div className="bg-white p-6 rounded-xl shadow mb-6">
+          <h3 className="text-lg font-semibold mb-2">What’s Included</h3>
+          <ul className="text-gray-600 list-disc pl-6 space-y-2">
+            <li>Professional technician visit</li>
+            <li>Required basic tools</li>
+            <li>Upfront pricing — no hidden charges</li>
+            <li>Service completion report</li>
+          </ul>
+        </div>
+
+        {/* What's Not Included */}
+        <div className="bg-white p-6 rounded-xl shadow mb-6">
+          <h3 className="text-lg font-semibold mb-2">What’s Not Included</h3>
+          <ul className="text-gray-600 list-disc pl-6 space-y-2">
+            <li>Material cost (if additional items are needed)</li>
+            <li>Major repairs beyond scope (charged separately)</li>
+            <li>Transportation cost (in rare cases)</li>
+          </ul>
+        </div>
+
+        {/* Book Now */}
         <div className="text-center mt-8">
           <button
             onClick={() =>
