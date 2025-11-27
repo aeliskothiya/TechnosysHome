@@ -44,8 +44,7 @@ debug.log
 # ======================================
 # Server Uploads (DON'T UPLOAD USER FILES)
 # ======================================
-Server/uploads/
-Server/uploads/**
+
 
 # If you want to upload images manually later (optional):
 # !Server/uploads/readme.md
