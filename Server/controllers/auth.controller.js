@@ -727,9 +727,10 @@ export const sendMobileOtp = async (req, res) => {
     const { mobile } = req.body;
 
     if (!mobile) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Mobile number is required" });
+      return res.status(400).json({
+        success: false,
+        message: "Mobile number is required",
+      });
     }
 
     if (mobile.length !== 10 || !/^\d+$/.test(mobile)) {
@@ -742,39 +743,48 @@ export const sendMobileOtp = async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpiry = new Date(Date.now() + 2 * 60 * 1000);
 
-    // Upsert OTP record for this mobile
     await TempOtpVerification.findOneAndUpdate(
       { contactType: "mobile", contactValue: mobile },
       { otp, otpExpiry, isVerified: false },
       { upsert: true, new: true }
     );
 
-    if (process.env.NODE_ENV === "production") {
-      // Twilio SMS
-      await twilioClient.messages.create({
-        body: `Your Technosys verification code is: ${otp}.This OTP is valid for 2 minutes.`,
-        from: process.env.TWILIO_PHONE_NUMBER,
-        to: `+91${mobile}`,
-      });
-      return res
-        .status(200)
-        .json({ success: true, message: "OTP sent successfully", mobile });
-    } else {
-      // Dev mode → return OTP
+    // -----------------------------------
+    //  ✔ DEVELOPMENT MODE (auto OTP)
+    // -----------------------------------
+    if (process.env.NODE_ENV !== "production") {
       return res.status(200).json({
         success: true,
         message: "OTP sent successfully (Dev Mode)",
-        otp,
+        otp,           // return OTP
         mobile,
       });
     }
+
+    // -----------------------------------
+    //  ✔ PRODUCTION MODE (Twilio)
+    // -----------------------------------
+    await twilioClient.messages.create({
+      body: `Your Technosys verification code is: ${otp}`,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: `+91${mobile}`,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "OTP sent successfully",
+      mobile,
+    });
+
   } catch (error) {
     console.error("Send mobile OTP error:", error);
-    return res
-      .status(500)
-      .json({ success: false, message: "Internal server error" });
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
   }
 };
+
 
 // Verify Mobile OTP
 export const verifyMobileOtp = async (req, res) => {
@@ -1157,49 +1167,36 @@ export const resetPassword = async (req, res) => {
 
 
 export const sendCustomerMobileOtp = async (req, res) => {
-  console.log("Customer OTP request body:", req.body); 
   try {
     const { mobile } = req.body;
 
     if (!mobile) {
       return res.status(400).json({
         success: false,
-        message: "Mobile number is required"
+        message: "Mobile number is required",
       });
     }
 
     if (mobile.length !== 10 || !/^\d+$/.test(mobile)) {
       return res.status(400).json({
         success: false,
-        message: "Enter valid 10-digit mobile number"
+        message: "Enter valid 10-digit mobile number",
       });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpiry = new Date(Date.now() + 2 * 60 * 1000);
 
-    // Upsert OTP record for this mobile
     await TempOtpVerification.findOneAndUpdate(
       { contactType: "mobile", contactValue: mobile },
       { otp, otpExpiry, isVerified: false },
       { upsert: true, new: true }
     );
 
-    if (process.env.NODE_ENV === "production") {
-      // Twilio SMS
-      await twilioClient.messages.create({
-        body: `Your Technosys verification code is: ${otp}`,
-        from: process.env.TWILIO_PHONE_NUMBER,
-        to: `+91${mobile}`,
-      });
-      return res.status(200).json({
-        success: true,
-        message: "OTP sent successfully",
-        mobile
-      });
-    } else {
-      // Dev mode → return OTP (same as technician)
-      console.log("Customer OTP (Dev Mode):", otp);
+    // -----------------------------------
+    // ✔ DEVELOPMENT MODE (auto OTP)
+    // -----------------------------------
+    if (process.env.NODE_ENV !== "production") {
       return res.status(200).json({
         success: true,
         message: "OTP sent successfully (Dev Mode)",
@@ -1207,11 +1204,27 @@ export const sendCustomerMobileOtp = async (req, res) => {
         mobile,
       });
     }
+
+    // -----------------------------------
+    // ✔ PRODUCTION MODE (Twilio)
+    // -----------------------------------
+    await twilioClient.messages.create({
+      body: `Your Technosys verification code is: ${otp}`,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: `+91${mobile}`,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "OTP sent successfully",
+      mobile,
+    });
+
   } catch (error) {
     console.error("Send customer mobile OTP error:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal server error"
+      message: "Internal server error",
     });
   }
 };
