@@ -11,6 +11,7 @@ export const AppContextProvider = ({ children }) => {
   const backendUrl =
     import.meta.env.VITE_BACKEND_URL ||
     "https://technosyshome-server.onrender.com";
+    
 
   // ⬅ MOST IMPORTANT: Set axios base URL globally
   axios.defaults.baseURL = backendUrl;
