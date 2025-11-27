@@ -5,7 +5,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Star, ArrowLeft } from "lucide-react";
 import { AppContext } from "../context/AppContext";
 
-const backendUrl = "http://localhost:4000";
+const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
 const CustomerServiceDetails = () => {
   const { id } = useParams(); // service id

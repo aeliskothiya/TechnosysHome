@@ -13,7 +13,7 @@ import axios from "axios";
 import { AppContext } from "../context/AppContext";
 import { assets } from "../assets/assets";
 
-const backendUrl = "http://localhost:4000";
+const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
 const CustomerNavbar = () => {
   const navigate = useNavigate();

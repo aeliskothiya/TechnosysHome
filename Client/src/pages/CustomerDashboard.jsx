@@ -26,7 +26,7 @@ import banner10 from "../assets/banners/banner10.jpg";
 const topBanners = [banner1, banner2, banner3, banner4, banner5];
 const bottomBanners = [banner6, banner7, banner8, banner9, banner10];
 
-const backendUrl = "http://localhost:4000"; // update if different
+const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
 const CustomerDashboard = () => {
   const navigate = useNavigate();
