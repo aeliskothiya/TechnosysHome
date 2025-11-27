@@ -805,11 +805,18 @@ export const verifyRazorpayPayment = async (req, res) => {
           try {
             const puppeteerModule = await import("puppeteer");
             const puppeteer = puppeteerModule.default || puppeteerModule;
+
             const browser = await puppeteer.launch({
-              executablePath: "/usr/bin/chromium",
               headless: "new",
-              args: ["--no-sandbox", "--disable-setuid-sandbox"]
+              args: [
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-gpu",
+                "--disable-dev-shm-usage",
+                "--disable-software-rasterizer",
+              ],
             });
+
 
             const page = await browser.newPage();
             await page.setContent(html, { waitUntil: "networkidle0" });
