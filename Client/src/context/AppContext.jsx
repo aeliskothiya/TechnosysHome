@@ -7,7 +7,7 @@ export const AppContext = createContext();
 
 export const AppContextProvider = ({ children }) => {
   const backendUrl =
-    import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
+    import.meta.env.VITE_BACKEND_URL || "https://technosyshome-server.onrender.com";
 
   axios.defaults.withCredentials = true;
 
