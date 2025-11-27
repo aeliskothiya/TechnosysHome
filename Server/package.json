@@ -6,8 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "nodemon server.js",
-    "server": "nodemon server.js",
-    "render-build": "./render-build.sh"
+    "server": "nodemon server.js"
   },
   "author": "",
   "license": "ISC",
