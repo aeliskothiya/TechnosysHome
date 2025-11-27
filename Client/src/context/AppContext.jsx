@@ -8,9 +8,12 @@ export const AppContext = createContext();
 export const AppContextProvider = ({ children }) => {
 
   // ⬅ Backend URL (safe fallback)
-  const backendUrl =
-    import.meta.env.VITE_BACKEND_URL ||
-    "https://technosyshome-server.onrender.com";
+const backendUrl =
+  (import.meta.env.VITE_BACKEND_URL && import.meta.env.VITE_BACKEND_URL.trim()) ||
+  "https://technosyshome-server.onrender.com";
+
+console.log("🔥 Loaded backend URL =>", backendUrl);
+
     
 
   // ⬅ MOST IMPORTANT: Set axios base URL globally
