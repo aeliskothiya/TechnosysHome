@@ -31,7 +31,7 @@ import bookingRoutes from "./routes/booking.route.js";
 import { startAutoCancelScheduler } from "./controllers/booking.controller.js";
 
 const app = express();
-const port = process.env.PORT || 4000;
+const port = process.env.PORT || 6000;
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -39,7 +39,9 @@ const __dirname = path.dirname(__filename);
 
 connectdb();
 
-const allowedOrigins = ['http://localhost:5173', 'http://localhost:5175'];
+const allowedOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',')
+  : ['http://localhost:5173', 'http://localhost:5173'];
 
 // Sanitize data for mongoose injection
 // app.use(mongoSanitize());
@@ -112,7 +114,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
     // Set CORS headers for static files
     res.setHeader('Access-Control-Allow-Origin', allowedOrigins);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
-    
+
     // Cache control for better performance
     if (path.endsWith('.jpg') || path.endsWith('.png') || path.endsWith('.jpeg') || path.endsWith('.webp')) {
       res.setHeader('Cache-Control', 'public, max-age=86400'); // 1 day cache for images

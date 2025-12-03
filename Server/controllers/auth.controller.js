@@ -19,7 +19,7 @@ import { processUploadedImage, deleteImageFile } from "../utils/imageUtils.js";
 const SENDER_NAME = process.env.SENDER_NAME || "Technosys";
 const SENDER_EMAIL = process.env.SENDER_EMAIL || process.env.SMTP_USER || "no-reply@technosys.local";
 const REPLY_TO = process.env.REPLY_TO || SENDER_EMAIL;
-const FRONTEND_URL = (process.env.FRONTEND_URL || process.env.CLIENT_URL || "http://localhost:5175").replace(/\/$/, "");
+const FRONTEND_URL = (process.env.FRONTEND_URL || process.env.CLIENT_URL || "http://localhost:5173").replace(/\/$/, "");
 
 //date = 12-10-25
 export const register = async (req, res) => {
@@ -355,7 +355,7 @@ export const login = async (req, res) => {
   // Find login block info
   const loginBlock = await LoginBlock.findOne({ Email: email });
   // If failed attempts >= 1, require reCAPTCHA
-  if (loginBlock && loginBlock.AttemptCount >= 1 ) {
+  if (loginBlock && loginBlock.AttemptCount >= 1) {
     if (!recaptchaToken) {
       return res.status(400).json({ success: false, message: "reCAPTCHA required" });
     }
@@ -592,10 +592,12 @@ export const googleLogin = async (req, res) => {
 // ================= IS AUTH =================
 export const isAuthenticated = async (req, res) => {
   try {
-    return res.json({ success: true, user: req.user,isLoggedIn: true,
+    return res.json({
+      success: true, user: req.user, isLoggedIn: true,
       message: "User is authenticated",
       userType: req.userType,
-      userEmail: req.userEmail });
+      userEmail: req.userEmail
+    });
   } catch (error) {
     res.json({ success: false, message: error.message });
   }
@@ -1247,7 +1249,7 @@ export const resetPassword = async (req, res) => {
 
 
 export const sendCustomerMobileOtp = async (req, res) => {
-  console.log("Customer OTP request body:", req.body); 
+  console.log("Customer OTP request body:", req.body);
   try {
     const { mobile } = req.body;
 
@@ -1437,14 +1439,14 @@ export const verifyCustomerMobileOtp = async (req, res) => {
 //     });
 //   } catch (error) {
 //     console.error("Update profile error:", error);
-    
+
 //     if (error.code === 11000) {
 //       return res.status(409).json({
 //         success: false,
 //         message: "Email already exists"
 //       });
 //     }
-    
+
 //     return res.status(500).json({
 //       success: false,
 //       message: "Internal server error"
@@ -1520,7 +1522,7 @@ export const cleanupExpiredOtps = async () => {
       otpExpiry: { $lt: currentTime },
       isVerified: false,
     });
-    
+
     if (result.deletedCount > 0) {
       console.log(`🧹 Cleaned up ${result.deletedCount} expired OTP records at ${currentTime.toISOString()}`);
     }

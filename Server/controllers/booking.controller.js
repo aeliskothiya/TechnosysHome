@@ -13,22 +13,18 @@ import { getIo } from "../config/realtime.js";
 import transporter from "../config/nodemailer.js";
 
 // Background job: Auto-cancel expired bookings
-const scheduledCancellations = new Map(); // bookingId -> timeoutId
-
 async function executeCancellation(bookingId) {
   try {
     const booking = await Booking.findById(bookingId);
-    
+
     if (!booking) {
       console.log(`⚠️ Booking ${bookingId} not found for auto-cancel`);
-      scheduledCancellations.delete(String(bookingId));
       return;
     }
 
     // Only cancel if still pending
     if (booking.Status !== "Pending") {
       console.log(`⚠️ Booking ${bookingId} is no longer pending (Status: ${booking.Status})`);
-      scheduledCancellations.delete(String(bookingId));
       return;
     }
 
@@ -40,136 +36,107 @@ async function executeCancellation(bookingId) {
 
     // Get socket.io instance
     const io = getIo();
-    
+
     // Find service request to get broadcast technicians
     const serviceRequest = await ServiceRequest.findOne({ BookingID: booking._id }).lean();
-    
+
     // Notify all technicians to remove the request
     if (serviceRequest?.BroadcastTechnicians) {
       serviceRequest.BroadcastTechnicians.forEach(tid => {
-        io.to(String(tid)).emit("booking-request-closed", { 
-          bookingId: String(booking._id) 
+        io.to(String(tid)).emit("booking-request-closed", {
+          bookingId: String(booking._id)
         });
       });
     }
-    
+
     // Notify customer about auto-cancellation
     const customerId = String(booking.CustomerID);
-    io.to(customerId).emit("booking-auto-cancelled", { 
+    io.to(customerId).emit("booking-auto-cancelled", {
       bookingId: String(booking._id),
       message: "Your booking was automatically cancelled due to no technician acceptance within 10 minutes."
     });
 
-    // Remove from scheduled map
-    scheduledCancellations.delete(String(bookingId));
   } catch (err) {
     console.error(`❌ Failed to auto-cancel booking ${bookingId}:`, err);
-    scheduledCancellations.delete(String(bookingId));
   }
 }
 
-export function scheduleAutoCancellation(bookingId, autoCancelAt) {
-  const bookingIdStr = String(bookingId);
-  
-  // Clear existing timeout if any
-  if (scheduledCancellations.has(bookingIdStr)) {
-    clearTimeout(scheduledCancellations.get(bookingIdStr));
-  }
-
-  const delay = new Date(autoCancelAt).getTime() - Date.now();
-  
-  if (delay <= 0) {
-    // Already expired, cancel immediately
-    console.log(`⚡ Booking ${bookingIdStr} already expired, cancelling immediately`);
-    executeCancellation(bookingId);
-    return;
-  }
-
-  // Schedule the cancellation at exact time
-  console.log(`⏰ Scheduled auto-cancel for booking ${bookingIdStr} in ${Math.round(delay/1000)} seconds (at ${new Date(autoCancelAt).toISOString()})`);
-  
-  const timeoutId = setTimeout(() => {
-    executeCancellation(bookingId);
-  }, delay);
-
-  scheduledCancellations.set(bookingIdStr, timeoutId);
-}
-
-export function cancelScheduledAutoCancellation(bookingId) {
-  const bookingIdStr = String(bookingId);
-  
-  if (scheduledCancellations.has(bookingIdStr)) {
-    clearTimeout(scheduledCancellations.get(bookingIdStr));
-    scheduledCancellations.delete(bookingIdStr);
-    console.log(`🚫 Cancelled scheduled auto-cancel for booking ${bookingIdStr}`);
-  }
-}
-
-export async function startAutoCancelScheduler() {
+// Polling function to check for expired bookings
+export async function checkExpiredBookings() {
   try {
-    console.log('🔄 Initializing auto-cancel scheduler...');
-    
-    // Find all pending bookings with AutoCancelAt set
-    const pendingBookings = await Booking.find({
+    const now = new Date();
+
+    // Find all pending bookings where AutoCancelAt has passed
+    const expiredBookings = await Booking.find({
       Status: "Pending",
-      AutoCancelAt: { $ne: null }
+      AutoCancelAt: { $lte: now }
     }).lean();
 
-    console.log(`📋 Found ${pendingBookings.length} pending booking(s) to schedule`);
+    if (expiredBookings.length > 0) {
+      console.log(`⏰ Found ${expiredBookings.length} expired bookings to cancel`);
 
-    const now = Date.now();
-    
-    // Schedule cancellation for each booking
-    for (const booking of pendingBookings) {
-      const autoCancelTime = new Date(booking.AutoCancelAt).getTime();
-      
-      if (autoCancelTime <= now) {
-        // Already expired, cancel immediately
-        console.log(`⚡ Booking ${booking._id} already expired, cancelling now`);
+      for (const booking of expiredBookings) {
         await executeCancellation(booking._id);
-      } else {
-        // Schedule future cancellation
-        scheduleAutoCancellation(booking._id, booking.AutoCancelAt);
       }
     }
-
-    console.log('✅ Auto-cancel scheduler initialized successfully');
   } catch (err) {
-    console.error('❌ Failed to start auto-cancel scheduler:', err);
+    console.error('❌ Error checking expired bookings:', err);
   }
+}
+
+// Start the polling interval
+let pollingInterval;
+
+export function startAutoCancelScheduler() {
+  console.log('🔄 Starting auto-cancel scheduler (polling mode)...');
+
+  // Check immediately on start
+  checkExpiredBookings();
+
+  // Then check every 1 minute
+  pollingInterval = setInterval(checkExpiredBookings, 60 * 1000);
+
+  console.log('✅ Auto-cancel scheduler started');
 }
 
 export function stopAutoCancelScheduler() {
-  console.log(`🛑 Stopping auto-cancel scheduler (${scheduledCancellations.size} scheduled cancellations)`);
-  
-  // Clear all scheduled timeouts
-  for (const [bookingId, timeoutId] of scheduledCancellations.entries()) {
-    clearTimeout(timeoutId);
+  if (pollingInterval) {
+    clearInterval(pollingInterval);
+    pollingInterval = null;
+    console.log('🛑 Auto-cancel scheduler stopped');
   }
-  
-  scheduledCancellations.clear();
-  console.log('✅ Auto-cancel scheduler stopped');
+}
+
+// Legacy functions kept for compatibility but now no-ops or redirected
+export function scheduleAutoCancellation(bookingId, autoCancelAt) {
+  // No-op: The polling mechanism will pick it up automatically based on DB field
+  console.log(`📅 Booking ${bookingId} auto-cancellation handled by DB polling (target: ${new Date(autoCancelAt).toISOString()})`);
+}
+
+export function cancelScheduledAutoCancellation(bookingId) {
+  // No-op: If status changes from Pending, the poller won't pick it up
+  console.log(`🚫 Auto-cancellation for ${bookingId} effectively cancelled (status change)`);
 }
 
 // Helper: radius technicians by category and timeslot
 async function findEligibleTechnicians({ coords, radiusKm = 5, serviceCategoryId, date, timeSlot }) {
   const [lng, lat] = coords;
-  
+
   // First, find technicians by category using the linking table
   const technicianCategories = await TechnicianServiceCategory.find({
     ServiceCategoryID: serviceCategoryId
   }).lean();
-  
+
   const categoryTechIds = technicianCategories.map(tc => tc.TechnicianID);
   if (!categoryTechIds.length) return [];
-  
+
   // Then filter by location and approval status
   const technicians = await Technician.find({
     _id: { $in: categoryTechIds },
     VerifyStatus: "Approved",
     location: { $near: { $geometry: { type: "Point", coordinates: [lng, lat] }, $maxDistance: radiusKm * 1000 } },
   }).lean();
-  
+
   console.log('  ✓ Approved technicians within', radiusKm, 'km:', technicians.length);
   technicians.forEach((tech, idx) => {
     const techCoords = tech.location?.coordinates || [];
@@ -183,7 +150,7 @@ async function findEligibleTechnicians({ coords, radiusKm = 5, serviceCategoryId
 
   // Format date as YYYY-MM-DD string to match model
   const dateStr = new Date(date).toISOString().split('T')[0];
-  
+
   // Build the time slot string (e.g., "18:00-19:00")
   const timeSlotStr = `${timeSlot}-${String(parseInt(timeSlot.split(':')[0]) + 1).padStart(2, '0')}:00`;
 
@@ -192,13 +159,13 @@ async function findEligibleTechnicians({ coords, radiusKm = 5, serviceCategoryId
     date: dateStr,
     timeSlots: { $elemMatch: { slot: timeSlotStr, status: "available" } }
   }).lean();
-  
+
   console.log('  ✓ Technicians with availability for', timeSlotStr, 'on', dateStr, ':', availabilities.length);
   availabilities.forEach((avail, idx) => {
     const tech = technicians.find(t => String(t._id) === String(avail.technicianId));
     console.log(`    ${idx + 1}. ${tech?.Name || 'Unknown'} (ID: ${String(avail.technicianId).slice(-6)}) has slot available`);
   });
-  
+
   const availableTechIds = new Set(availabilities.map(a => String(a.technicianId)));
   const eligible = technicians.filter(t => availableTechIds.has(String(t._id)));
   return eligible;
@@ -209,7 +176,7 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371; // Earth's radius in km
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
+  const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
@@ -236,9 +203,9 @@ export async function createBooking(req, res) {
     const bookingDateObj = new Date(bookingDate);
     const startOfDay = new Date(bookingDateObj.getFullYear(), bookingDateObj.getMonth(), bookingDateObj.getDate());
     const endOfDay = new Date(bookingDateObj.getFullYear(), bookingDateObj.getMonth(), bookingDateObj.getDate(), 23, 59, 59, 999);
-    
+
     console.log('🔍 Duplicate check - CustomerID:', customerId, 'SubCategoryID:', SubCategoryID, 'Date:', startOfDay.toISOString(), 'TimeSlot:', TimeSlot);
-    
+
     const now = new Date();
     const existingBooking = await Booking.findOne({
       CustomerID: customerId,
@@ -256,8 +223,8 @@ export async function createBooking(req, res) {
     console.log('🔍 Existing booking found:', existingBooking ? `Yes - ID: ${existingBooking._id}, Status: ${existingBooking.Status}, AutoCancelAt: ${existingBooking.AutoCancelAt}` : 'No');
 
     if (existingBooking) {
-      return res.status(400).json({ 
-        success: false, 
+      return res.status(400).json({
+        success: false,
         message: "You already have an active booking for this service at the same date and time. Please choose a different time slot or wait for your current booking to complete."
       });
     }
@@ -284,20 +251,20 @@ export async function createBooking(req, res) {
 export async function precheckAvailability(req, res) {
   try {
     const { CustomerID, SubCategoryID, Date: bookingDate, TimeSlot } = req.body;
-    
+
     if (!CustomerID || !SubCategoryID || !bookingDate || !TimeSlot) {
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
-    
+
     const customer = await Customer.findById(CustomerID).lean();
     if (!customer) {
       return res.status(400).json({ success: false, message: "Customer not found" });
     }
-    
+
     if (!customer.location || !Array.isArray(customer.location.coordinates)) {
       return res.status(400).json({ success: false, message: "Please update your profile with your location to find nearby technicians" });
     }
-    
+
     // Infer service category from subcategory
     const sub = await SubServiceCategory.findById(SubCategoryID).lean();
     const serviceCategoryId = sub?.serviceCategoryId || sub?.CategoryID || sub?.ServiceCategoryID || null;
@@ -305,7 +272,7 @@ export async function precheckAvailability(req, res) {
       console.error('SubCategory lookup failed or missing serviceCategoryId:', sub);
       return res.status(400).json({ success: false, message: "Invalid service category. Please contact support." });
     }
-    
+
     const eligible = await findEligibleTechnicians({ coords: customer.location.coordinates, radiusKm: 5, serviceCategoryId, date: bookingDate, timeSlot: TimeSlot });
     if (!eligible.length) {
       return res.json({ success: false, message: "No technician available for the selected time. Please change date or location." });
@@ -334,16 +301,16 @@ export async function broadcastBooking(req, res) {
     const { bookingId } = req.body;
     const booking = await Booking.findById(bookingId);
     if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
-    
+
     // Find eligible technicians using customer's location and category inferred from subcategory
     const customer = await Customer.findById(booking.CustomerID).lean();
     if (!customer || !customer.location || !Array.isArray(customer.location.coordinates)) {
       return res.status(400).json({ success: false, message: "Customer location required" });
     }
-    
+
     const sub = await SubServiceCategory.findById(booking.SubCategoryID).lean();
     const serviceCategoryId = sub?.serviceCategoryId || sub?.CategoryID || sub?.ServiceCategoryID || null;
-    
+
     const eligible = await findEligibleTechnicians({ coords: customer.location.coordinates, radiusKm: 5, serviceCategoryId, date: booking.Date, timeSlot: booking.TimeSlot });
 
     if (!eligible.length) {
@@ -353,7 +320,7 @@ export async function broadcastBooking(req, res) {
     // Update service request with broadcast technicians
     const techIds = eligible.map(t => t._id);
     console.log('💾 Saving broadcast technicians:', techIds.length, 'IDs:', techIds.map(id => String(id).slice(-6)));
-    
+
     const serviceRequest = await ServiceRequest.findOne({ BookingID: booking._id });
     if (serviceRequest) {
       serviceRequest.BroadcastTechnicians = techIds;
@@ -362,7 +329,7 @@ export async function broadcastBooking(req, res) {
     } else {
       console.log('❌ ServiceRequest not found for booking:', booking._id);
     }
-    
+
     booking.AutoCancelAt = new Date(Date.now() + 10 * 60 * 1000);
     await booking.save();
 
@@ -374,11 +341,11 @@ export async function broadcastBooking(req, res) {
     console.log('📡 Broadcasting to', eligible.length, 'technicians via socket...');
     eligible.forEach((t, idx) => {
       const techId = String(t._id);
-      const payload = { 
-        bookingId: String(booking._id), 
-        customerId: String(booking.CustomerID), 
-        date: booking.Date, 
-        timeSlot: booking.TimeSlot 
+      const payload = {
+        bookingId: String(booking._id),
+        customerId: String(booking.CustomerID),
+        date: booking.Date,
+        timeSlot: booking.TimeSlot
       };
       console.log(`  ${idx + 1}. Emitting to ${t.Name} (ID: ${techId.slice(-6)})`);
       io.to(techId).emit("new-booking-request", payload);
@@ -412,8 +379,8 @@ export async function acceptBooking(req, res) {
 
     // Check if technician has enough coins
     if (wallet.BalanceCoins < coinsRequired) {
-      return res.status(400).json({ 
-        success: false, 
+      return res.status(400).json({
+        success: false,
         message: "Insufficient coins. Please purchase a subscription to continue.",
         insufficientCoins: true,
         requiredCoins: coinsRequired,
@@ -475,15 +442,15 @@ export async function acceptBooking(req, res) {
     }
 
     const io = getIo();
-    
+
     // Notify the customer that their booking was accepted
     const customerId = String(booking.CustomerID);
-    io.to(customerId).emit("booking-accepted", { 
-      bookingId: String(booking._id), 
+    io.to(customerId).emit("booking-accepted", {
+      bookingId: String(booking._id),
       technicianId: String(technicianId),
       status: "Confirmed"
     });
-    
+
     // Notify all other technicians to remove the request via ServiceRequest broadcast list
     const serviceRequest = await ServiceRequest.findOne({ BookingID: booking._id }).lean();
     (serviceRequest?.BroadcastTechnicians || []).forEach(tid => {
@@ -492,8 +459,8 @@ export async function acceptBooking(req, res) {
       }
     });
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       data: booking,
       coinsDeducted: coinsRequired,
       newBalance: wallet.BalanceCoins
@@ -633,7 +600,7 @@ export async function completeService(req, res) {
 
     const booking = await Booking.findById(bookingId);
     if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
-    
+
     if (String(booking.TechnicianID) !== String(technicianId)) {
       return res.status(403).json({ success: false, message: "Unauthorized" });
     }
@@ -789,7 +756,7 @@ export async function autoCancelIfNoAcceptance(req, res) {
   try {
     const { bookingId } = req.body;
     console.log('🕒 Auto-cancel check called for booking:', bookingId);
-    
+
     const booking = await Booking.findById(bookingId);
     if (!booking) {
       console.log('❌ Booking not found:', bookingId);
@@ -803,22 +770,22 @@ export async function autoCancelIfNoAcceptance(req, res) {
       booking.Status = "AutoCancelled";
       await booking.save();
       console.log('✅ Database updated - Status is now:', booking.Status);
-      
+
       const io = getIo();
       const serviceRequest = await ServiceRequest.findOne({ BookingID: booking._id }).lean();
-      
+
       // Notify all technicians to remove the request
       (serviceRequest?.BroadcastTechnicians || []).forEach(tid => {
         io.to(String(tid)).emit("booking-request-closed", { bookingId: String(booking._id) });
       });
-      
+
       // Notify customer about auto-cancellation
       const customerId = String(booking.CustomerID);
-      io.to(customerId).emit("booking-auto-cancelled", { 
+      io.to(customerId).emit("booking-auto-cancelled", {
         bookingId: String(booking._id),
         message: "Your booking was automatically cancelled due to no technician acceptance within 10 minutes."
       });
-      
+
       return res.json({ success: true, message: "Booking auto-cancelled. Refund will be processed." });
     }
 
@@ -849,7 +816,7 @@ export async function cancelBooking(req, res) {
 
     const booking = await Booking.findById(bookingId);
     if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
-    
+
     // Check if booking belongs to customer
     if (String(booking.CustomerID) !== String(customerId)) {
       return res.status(403).json({ success: false, message: "Unauthorized" });
@@ -867,7 +834,7 @@ export async function cancelBooking(req, res) {
     const createdTime = new Date(booking.createdAt).getTime();
     const now = Date.now();
     const tenMinutes = 10 * 60 * 1000;
-    
+
     if (now - createdTime > tenMinutes) {
       return res.status(400).json({ success: false, message: "Cancellation window (10 minutes) has expired" });
     }
@@ -896,7 +863,7 @@ export async function cancelBooking(req, res) {
 export async function getCustomerBookings(req, res) {
   try {
     const customerId = req.userId || req.user?._id || req.params.customerId;
-    
+
     const bookings = await Booking.find({ CustomerID: customerId })
       .populate('SubCategoryID', 'name price image')
       .populate('TechnicianID', 'Name MobileNumber')
@@ -999,21 +966,21 @@ export async function getTechnicianCompletedBookings(req, res) {
 export const cleanupBookingOtps = async () => {
   try {
     const currentTime = new Date();
-    
+
     // Delete expired OTPs
     const expiredResult = await BookingArrivalOTP.deleteMany({
       expiresAt: { $lt: currentTime },
     });
-    
+
     // Delete used OTPs older than 24 hours
     const oneDayAgo = new Date(currentTime.getTime() - 24 * 60 * 60 * 1000);
     const usedResult = await BookingArrivalOTP.deleteMany({
       isUsed: true,
       updatedAt: { $lt: oneDayAgo },
     });
-    
+
     const totalDeleted = (expiredResult.deletedCount || 0) + (usedResult.deletedCount || 0);
-    
+
     if (totalDeleted > 0) {
       console.log(`🧹 Cleaned up ${totalDeleted} booking OTP records (${expiredResult.deletedCount || 0} expired, ${usedResult.deletedCount || 0} used) at ${currentTime.toISOString()}`);
     }
