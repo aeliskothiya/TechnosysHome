@@ -15,8 +15,13 @@ import Customer from "../models/Customer.js";
 import nodemailer from "nodemailer";
 import { processUploadedImage, deleteImageFile } from "../utils/imageUtils.js";
 
+// Branded sender defaults
+const SENDER_NAME = process.env.SENDER_NAME || "Technosys";
+const SENDER_EMAIL = process.env.SENDER_EMAIL || process.env.SMTP_USER || "no-reply@technosys.local";
+const REPLY_TO = process.env.REPLY_TO || SENDER_EMAIL;
+const FRONTEND_URL = (process.env.FRONTEND_URL || process.env.CLIENT_URL || "http://localhost:5175").replace(/\/$/, "");
 
-//date = 12-10-25 
+//date = 12-10-25
 export const register = async (req, res) => {
   try {
     // File validation
@@ -254,14 +259,53 @@ export const register = async (req, res) => {
     // ✅ Welcome email
     try {
       await transporter.sendMail({
-        from: process.env.SENDER_EMAIL,
+        from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
+        replyTo: REPLY_TO,
         to: email,
         subject: "Welcome to Technosys!",
         html: `
-          <h2 style="color:#4F46E5;">Welcome to Technosys!</h2>
-          <p>Dear ${name},</p>
-          <p>Your technician account has been created successfully and is pending verification.</p>
-          <p>Our team will review your application and notify you once approved.</p>
+          <!doctype html>
+          <html>
+          <head>
+            <meta charset="utf-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          </head>
+          <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f4f6fb;">
+            <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+              <tr>
+                <td align="center" style="padding:24px 16px;">
+                  <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+                    <tr style="background:#0f172a;color:#ffffff;">
+                      <td style="padding:20px 24px;display:flex;align-items:center;">
+                        <div style="font-weight:700;font-size:20px;">${SENDER_NAME}</div>
+                        <div style="flex:1"></div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding:28px 24px;color:#0f172a;">
+                        <h1 style="margin:0 0 8px;font-size:22px;">Welcome, ${name} 👋</h1>
+                        <p style="margin:0 0 16px;color:#475569;line-height:1.5;">Thanks for joining ${SENDER_NAME}! Your technician account has been created and is currently pending verification by our team. We'll notify you by email once your account is approved.</p>
+                        <p style="margin:0 0 18px;color:#475569;line-height:1.5;">In the meantime you can sign in to your dashboard and complete any missing details.</p>
+                        <table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:8px;">
+                          <tr>
+                            <td style="border-radius:6px;background:#4f46e5;padding:10px 16px;display:inline-block;">
+                              <a href="${FRONTEND_URL}" style="color:#ffffff;text-decoration:none;font-weight:600;">Open Dashboard</a>
+                            </td>
+                          </tr>
+                        </table>
+                        <hr style="border:none;border-top:1px solid #eef2ff;margin:20px 0;" />
+                        <p style="margin:0;color:#94a3b8;font-size:13px;">If you didn't sign up for ${SENDER_NAME}, please ignore this email or contact our support.</p>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="background:#f8fafc;padding:12px 24px;color:#9aa4b2;font-size:12px;">© ${new Date().getFullYear()} ${SENDER_NAME}. All rights reserved.</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+          </html>
         `,
       });
     } catch (emailError) {
@@ -311,7 +355,7 @@ export const login = async (req, res) => {
   // Find login block info
   const loginBlock = await LoginBlock.findOne({ Email: email });
   // If failed attempts >= 1, require reCAPTCHA
-  if (loginBlock && loginBlock.AttemptCount >= 1) {
+  if (loginBlock && loginBlock.AttemptCount >= 1 ) {
     if (!recaptchaToken) {
       return res.status(400).json({ success: false, message: "reCAPTCHA required" });
     }
@@ -396,11 +440,11 @@ export const login = async (req, res) => {
       if (loginBlock) {
         loginBlock.AttemptCount += 1;
         if (loginBlock.AttemptCount >= 3) {
-          loginBlock.BlockedUntil = new Date(Date.now() + 5 * 60 * 1000); // 5 min
+          loginBlock.BlockedUntil = new Date(Date.now() + 30 * 60 * 1000); // 30 min
           await loginBlock.save();
           return res.status(429).json({
             success: false,
-            message: "Too many failed attempts. You are blocked for 5 minutes.",
+            message: "Too many failed attempts. You are blocked for 30 minutes.",
           });
         } else {
           await loginBlock.save();
@@ -410,7 +454,7 @@ export const login = async (req, res) => {
       }
       return res.status(401).json({
         success: false,
-        message: "Invalid email or password",
+        message: "Invalid credentials",
       });
     } else {
       // On successful login, reset block info
@@ -439,6 +483,16 @@ export const login = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
+    // return res.json({
+    //   success: true,
+    //   message: "Login successful",
+    //   data: {
+    //     id: technician._id,
+    //     name: technician.Name,
+    //     email: technician.Email,
+    //     photo: technician.Photo,
+    //   },
+    // });
 
     // Prepare response data based on user type
     let responseData = {};
@@ -514,17 +568,34 @@ export const googleLogin = async (req, res) => {
   }
 };
 
-
+// export const logout = async (req, res) => {
+//   try {
+//     res.clearCookie("token", {
+//       httpOnly: true,
+//       secure: process.env.NODE_ENV === "production",
+//       sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+//     });
+//     return res.json({ success: true, message: "Logged Out" });
+//   } catch (error) {
+//     return res.json({ success: false, message: error.message });
+//   }
+// };
+// // ================= IS AUTH =================
+// export const isAuthenticated = async (req, res) => {
+//   try {
+//     return res.json({ success: true });
+//   } catch (error) {
+//     res.json({ success: false, message: error.message });
+//   }
+// };
 
 // ================= IS AUTH =================
 export const isAuthenticated = async (req, res) => {
   try {
-    return res.json({
-      success: true, user: req.user, isLoggedIn: true,
+    return res.json({ success: true, user: req.user,isLoggedIn: true,
       message: "User is authenticated",
       userType: req.userType,
-      userEmail: req.userEmail
-    });
+      userEmail: req.userEmail });
   } catch (error) {
     res.json({ success: false, message: error.message });
   }
@@ -552,18 +623,147 @@ const twilioClient = twilio(
   process.env.TWILIO_AUTH_TOKEN
 );
 
-// ✅ OTP mode control
-// OTP_MODE = "auto"  → no Twilio, just return OTP in response
-// OTP_MODE = "twilio" → use Twilio, ONLY if credentials are valid
-const OTP_MODE = process.env.OTP_MODE || "auto";
+// export const verifyMobileOtp = async (req, res) => {
+//   try {
+//     const { mobile, otp } = req.body;
 
-const isTwilioConfigured =
-  !!process.env.TWILIO_ACCOUNT_SID &&
-  !!process.env.TWILIO_AUTH_TOKEN &&
-  !!process.env.TWILIO_PHONE_NUMBER;
+//     if (!mobile || !otp) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Mobile number and OTP are required",
+//       });
+//     }
 
-const useTwilioOtp = OTP_MODE === "twilio" && isTwilioConfigured;
+//     // In a real implementation, you would:
+//     // 1. Retrieve the stored OTP for this mobile number from your database
+//     // 2. Check if it matches and hasn't expired
+//     // 3. Mark the mobile as verified
 
+//     // For this example, we'll just validate the OTP format
+//     if (otp.length !== 6 || !/^\d+$/.test(otp)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid OTP format",
+//       });
+//     }
+
+//     // In development mode, accept any 6-digit OTP
+//     if (process.env.NODE_ENV === 'development') {
+//       return res.status(200).json({
+//         success: true,
+//         message: "Mobile number verified successfully",
+//         mobile: mobile
+//       });
+//     }
+
+//     // In production, you would verify against the stored OTP
+//     // This is a placeholder for your actual verification logic
+//     const isOtpValid = true; // Replace with actual verification
+
+//     if (isOtpValid) {
+//       return res.status(200).json({
+//         success: true,
+//         message: "Mobile number verified successfully",
+//         mobile: mobile
+//       });
+//     } else {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid OTP",
+//       });
+//     }
+//   } catch (error) {
+//     console.error("Verify mobile OTP error:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: error.message || "Internal server error",
+//     });
+//   }
+// };
+
+// Send Mobile OTP
+// export const sendMobileOtp = async (req, res) => {
+//   try {
+//     const { mobile } = req.body;
+
+//     if (!mobile) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Mobile number is required",
+//       });
+//     }
+
+//     // Check if mobile number is valid (10 digits)
+//     if (mobile.length !== 10 || !/^\d+$/.test(mobile)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Please enter a valid 10-digit mobile number",
+//       });
+//     }
+
+//     // Generate OTP
+//     const otp = Math.floor(100000 + Math.random() * 900000).toString();
+//     const otpExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+//     console.log("Generated OTP:", otp); // For debugging, remove in production
+//     // Check if technician with this mobile already exists
+//     let technician = await Technician.findOne({ MobileNumber: mobile });
+
+//     if (technician) {
+//       // Update existing technician's OTP
+//       technician.mobileOtp = otp;
+//       technician.mobileOtpExpiry = otpExpiry;
+//       await technician.save();
+//     } else {
+//       // Create a temporary record for OTP verification
+//       technician = new Technician({
+//         MobileNumber: mobile,
+//         mobileOtp: otp,
+//         mobileOtpExpiry: otpExpiry,
+//         // Other fields will be filled during registration
+//       });
+//       await technician.save();
+//     }
+
+//     // In production, send SMS via Twilio
+//     if (process.env.NODE_ENV === 'production') {
+//       try {
+//         const message = await twilioClient.messages.create({
+//           body: `Your Technosys verification code is: ${otp}`,
+//           from: process.env.TWILIO_PHONE_NUMBER,
+//           to: `+91${mobile}` // Assuming Indian numbers
+//         });
+
+//         console.log("SMS sent with SID:", message.sid);
+
+//         return res.status(200).json({
+//           success: true,
+//           message: "OTP sent successfully",
+//           mobile: mobile
+//         });
+//       } catch (twilioError) {
+//         console.error("Twilio error:", twilioError);
+//         return res.status(500).json({
+//           success: false,
+//           message: "Failed to send OTP. Please try again later.",
+//         });
+//       }
+//     } else {
+//       // Development mode - return OTP in response
+//       return res.status(200).json({
+//         success: true,
+//         message: "OTP sent successfully",
+//         otp: otp, // Only for development
+//         mobile: mobile
+//       });
+//     }
+//   } catch (error) {
+//     console.error("Send mobile OTP error:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: error.message || "Internal server error",
+//     });
+//   }
+// };
 
 // Send Mobile OTP
 export const sendMobileOtp = async (req, res) => {
@@ -593,34 +793,25 @@ export const sendMobileOtp = async (req, res) => {
       { upsert: true, new: true }
     );
 
-    // ✅ NEW: control SMS by USE_REAL_SMS flag instead of NODE_ENV
-    // const useRealSms = process.env.USE_REAL_SMS === "true";
-
-    // Decide mode: Twilio vs Auto
-    if (useTwilioOtp) {
-      // 🔒 Real SMS via Twilio (when OTP_MODE="twilio" and keys valid)
+    if (process.env.NODE_ENV === "production") {
+      // Twilio SMS
       await twilioClient.messages.create({
-        body: `Your Technosys verification code is: ${otp}. This OTP is valid for 2 minutes.`,
+        body: `Your Technosys verification code is: ${otp}.This OTP is valid for 2 minutes.`,
         from: process.env.TWILIO_PHONE_NUMBER,
         to: `+91${mobile}`,
       });
-
-      return res.status(200).json({
-        success: true,
-        message: "OTP sent via SMS",
-        mobile,
-      });
+      return res
+        .status(200)
+        .json({ success: true, message: "OTP sent successfully", mobile });
     } else {
-      // 💻 Auto OTP mode (Dev / Test)
-      console.log("Technician OTP (AUTO MODE):", otp);
+      // Dev mode → return OTP
       return res.status(200).json({
         success: true,
-        message: "OTP sent successfully (Auto Mode)",
-        otp,   // frontend can fill this automatically
+        message: "OTP sent successfully (Dev Mode)",
+        otp,
         mobile,
       });
     }
-
   } catch (error) {
     console.error("Send mobile OTP error:", error);
     return res
@@ -628,8 +819,6 @@ export const sendMobileOtp = async (req, res) => {
       .json({ success: false, message: "Internal server error" });
   }
 };
-
-
 
 // Verify Mobile OTP
 export const verifyMobileOtp = async (req, res) => {
@@ -700,10 +889,32 @@ export const sendEmailOtp = async (req, res) => {
 
     // Send Email
     await transporter.sendMail({
-      from: process.env.SENDER_EMAIL,
+      from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
+      replyTo: REPLY_TO,
       to: email,
-      subject: "Technosys Email Verification OTP",
-      html: `<h3>Your OTP is: ${otp}</h3><p>Valid for 2 minutes</p>`,
+      subject: `Your ${SENDER_NAME} verification code`,
+      html: `
+        <!doctype html>
+        <html>
+        <head><meta charset="utf-8"/></head>
+        <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f4f6fb;">
+          <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+            <tr>
+              <td align="center" style="padding:24px 16px;">
+                <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+                  <tr style="background:#0f172a;color:#ffffff;"><td style="padding:18px 24px;font-weight:700;">${SENDER_NAME}</td></tr>
+                  <tr><td style="padding:24px;color:#0f172a;"><h2 style="margin:0 0 12px;font-size:20px;">Email verification code</h2><p style="margin:0 0 18px;color:#475569;">Use the code below to verify your email address. It expires in 2 minutes.</p>
+                    <div style="margin:16px 0;text-align:center;"><div style="display:inline-block;background:#eef2ff;border-radius:8px;padding:14px 20px;font-weight:700;font-size:20px;letter-spacing:4px;color:#0f172a;">${otp}</div></div>
+                    <p style="margin:0;color:#94a3b8;font-size:13px;">If you didn't request this, please ignore this email.</p>
+                  </td></tr>
+                  <tr><td style="background:#f8fafc;padding:12px 24px;color:#9aa4b2;font-size:12px;">© ${new Date().getFullYear()} ${SENDER_NAME}</td></tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
+      `,
     });
 
     return res.status(200).json({
@@ -759,7 +970,165 @@ export const verifyEmailOtp = async (req, res) => {
   }
 };
 
+// export const sendVerifyotp = async (req, res) => {
+//   try {
+//     const userId = req.userId;
+//     const user = await userModel.findById(userId);
+//     if (!user) return res.json({ success: false, message: "User not found" });
+//     if (user.isAccountVerified) {
+//       return res.json({ success: false, message: "Account Already Verified" });
+//     }
 
+//     const otp = String(Math.floor(100000 + Math.random() * 900000));
+//     user.verifyOtp = otp;
+//     user.verifyOtpExpireAt = Date.now() + 24 * 60 * 60 * 1000;
+//     await user.save();
+
+//     const mailOptions = {
+//       from: process.env.SENDER_EMAIL,
+//       to: user.email,
+//       subject: "Account Verification OTP",
+//       text: `Your OTP is ${otp}. Verify your account using this OTP.`,
+//     };
+
+//     await transporter.sendMail(mailOptions);
+//     res.json({ success: true, message: "Verification OTP sent to email" });
+//   } catch (error) {
+//     return res.json({ success: false, message: error.message });
+//   }
+// };
+
+// // ================= VERIFY EMAIL =================
+// export const verifyEmail = async (req, res) => {
+//   const userId = req.userId;
+//   const { otp } = req.body;
+
+//   if (!userId || !otp) {
+//     return res.json({ success: false, message: 'Missing details' });
+//   }
+
+//   try {
+//     const user = await Technician.findById(userId);
+//     if (!user) return res.json({ success: false, message: 'User not found' });
+
+//     // check OTP
+//     if (!user.otp || user.otp !== otp) {
+//       return res.json({ success: false, message: 'Invalid OTP' });
+//     }
+
+//     // check expiry
+//     if (user.otpExpiry < Date.now()) {
+//       return res.json({ success: false, message: 'OTP expired' });
+//     }
+
+//     // mark verified
+//     user.VerifyStatus = "Approved";   // ya jo bhi status tum chaho
+//     user.otp = "";
+//     user.otpExpiry = null;
+
+//     await user.save();
+
+//     return res.json({ success: true, message: 'Email verified successfully' });
+//   } catch (error) {
+//     return res.json({ success: false, message: error.message });
+//   }
+// };
+
+// ================= SEND RESET OTP =================
+// export const sendResetOtp = async (req, res) => {
+//   const { email } = req.body;
+
+//   if (!email) return res.json({ success: false, message: "Email is Required" });
+
+//   try {
+//     const user = await Technician.findOne({ email });
+//     if (!user) return res.json({ success: false, message: "User Not Found " });
+
+//     const otp = String(Math.floor(100000 + Math.random() * 900000));
+//     user.resetOtp = otp;
+//     user.resetOtpExpireAt = Date.now() + 15 * 60 * 1000;
+//     await user.save();
+
+//     const mailOptions = {
+//       from: process.env.SENDER_EMAIL,
+//       to: user.email,
+//       subject: "Password Reset OTP",
+//       text: `Your OTP for resetting your password is ${otp}. Use this OTP to proceed.`,
+//     };
+
+//     await transporter.sendMail(mailOptions);
+//     return res.json({ success: true, message: "OTP sent to your Email" });
+//   } catch (error) {
+//     return res.json({ success: false, message: error.message });
+//   }
+// };
+// ================= SEND RESET OTP =================
+// export const sendResetOtp = async (req, res) => {
+//   const { email } = req.body;
+
+//   if (!email) return res.json({ success: false, message: "Email is Required" });
+
+//   try {
+//     // CHANGE: Use userModel instead of Technician for consistency
+//     const user = await Technician.findOne({ email });
+//     if (!user) return res.json({ success: false, message: "User Not Found " });
+
+//     const otp = String(Math.floor(100000 + Math.random() * 900000));
+//     user.resetOtp = otp;
+//     user.resetOtpExpireAt = Date.now() + 15 * 60 * 1000;
+//     await user.save();
+
+//     const mailOptions = {
+//       from: process.env.SENDER_EMAIL,
+//       to: user.email,
+//       subject: "Password Reset OTP",
+//       text: `Your OTP for resetting your password is ${otp}. Use this OTP to proceed.`,
+//     };
+
+//     await transporter.sendMail(mailOptions);
+//     return res.json({ success: true, message: "OTP sent to your Email" });
+//   } catch (error) {
+//     return res.json({ success: false, message: error.message });
+//   }
+// };
+
+// // ================= RESET PASSWORD =================
+// export const resetPassword = async (req, res) => {
+//   const { email, otp, newPassword } = req.body;
+
+//   if (!email || !otp || !newPassword) {
+//     return res.json({
+//       success: false,
+//       message: "Email, OTP, and new password are required",
+//     });
+//   }
+
+//   try {
+//     const user = await Technician.findOne({ email });
+//     if (!user) return res.json({ success: false, message: "User not found" });
+
+//     if (!user.resetOtp || user.resetOtp !== otp) {
+//       return res.json({ success: false, message: "Invalid OTP" });
+//     }
+
+//     if (user.resetOtpExpireAt < Date.now()) {
+//       return res.json({ success: false, message: "OTP is expired" });
+//     }
+
+//     const hashedPassword = await bcrypt.hash(newPassword, 10);
+//     user.password = hashedPassword;
+//     user.resetOtp = "";
+//     user.resetOtpExpireAt = 0;
+//     await user.save();
+
+//     return res.json({
+//       success: true,
+//       message: "Password has been reset successfully",
+//     });
+//   } catch (error) {
+//     return res.json({ success: false, message: error.message });
+//   }
+// };
 
 export const sendResetOtp = async (req, res) => {
   const { email } = req.body;
@@ -788,10 +1157,34 @@ export const sendResetOtp = async (req, res) => {
     );
 
     const mailOptions = {
-      from: process.env.SENDER_EMAIL,
+      from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
+      replyTo: REPLY_TO,
       to: user.Email,
-      subject: "Password Reset OTP",
-      text: `Your OTP for resetting your password is ${otp}. Use this OTP to proceed.`,
+      subject: `${SENDER_NAME} Password Reset Code`,
+      html: `
+        <!doctype html>
+        <html>
+        <head><meta charset="utf-8"/></head>
+        <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f4f6fb;">
+          <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+            <tr>
+              <td align="center" style="padding:24px 16px;">
+                <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+                  <tr style="background:#0f172a;color:#ffffff;"><td style="padding:18px 24px;font-weight:700;">${SENDER_NAME}</td></tr>
+                  <tr><td style="padding:24px;color:#0f172a;"><h2 style="margin:0 0 12px;font-size:20px;">Password reset</h2>
+                    <p style="margin:0 0 16px;color:#475569;">You requested to reset your password. Use the code below to continue. This code expires in 2 minutes.</p>
+                    <div style="margin:16px 0;text-align:center;"><div style="display:inline-block;background:#fff4e6;border-radius:8px;padding:14px 20px;font-weight:700;font-size:20px;letter-spacing:4px;color:#92400e;">${otp}</div></div>
+                    <p style="margin:0 0 12px;color:#475569;">If you didn't request a password reset, please ignore this email or contact support.</p>
+                    <p style="margin:0;"><a href="${FRONTEND_URL}/reset-password" style="display:inline-block;padding:10px 16px;background:#4f46e5;color:#ffffff;border-radius:6px;text-decoration:none;font-weight:600;">Reset Password</a></p>
+                  </td></tr>
+                  <tr><td style="background:#f8fafc;padding:12px 24px;color:#9aa4b2;font-size:12px;">© ${new Date().getFullYear()} ${SENDER_NAME}</td></tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
+      `,
     };
 
     await transporter.sendMail(mailOptions);
@@ -853,72 +1246,65 @@ export const resetPassword = async (req, res) => {
 };
 
 
-  export const sendCustomerMobileOtp = async (req, res) => {
-    console.log("Customer OTP request body:", req.body);
-    try {
-      const { mobile } = req.body;
+export const sendCustomerMobileOtp = async (req, res) => {
+  console.log("Customer OTP request body:", req.body); 
+  try {
+    const { mobile } = req.body;
 
-      if (!mobile) {
-        return res.status(400).json({
-          success: false,
-          message: "Mobile number is required"
-        });
-      }
-
-      if (mobile.length !== 10 || !/^\d+$/.test(mobile)) {
-        return res.status(400).json({
-          success: false,
-          message: "Enter valid 10-digit mobile number"
-        });
-      }
-
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      const otpExpiry = new Date(Date.now() + 2 * 60 * 1000);
-
-      // Upsert OTP record for this mobile
-      await TempOtpVerification.findOneAndUpdate(
-        { contactType: "mobile", contactValue: mobile },
-        { otp, otpExpiry, isVerified: false },
-        { upsert: true, new: true }
-      );
-
-      // ✅ NEW flag
-      // const useTwilioOtp = process.env.USE_TWILIO_OTP === "true";
-
-      if (useTwilioOtp) {
-        // 🔒 Real SMS via Twilio
-        await twilioClient.messages.create({
-          body: `Your Technosys verification code is: ${otp}. This OTP is valid for 2 minutes.`,
-          from: process.env.TWILIO_PHONE_NUMBER,
-          to: `+91${mobile}`,
-        });
-
-        return res.status(200).json({
-          success: true,
-          message: "OTP sent via SMS",
-          mobile,
-        });
-      } else {
-        // 💻 Auto OTP mode
-        console.log("Customer OTP (AUTO MODE):", otp);
-        return res.status(200).json({
-          success: true,
-          message: "OTP sent successfully (Auto Mode)",
-          otp,
-          mobile,
-        });
-      }
-
-    } catch (error) {
-      console.error("Send customer mobile OTP error:", error);
-      return res.status(500).json({
+    if (!mobile) {
+      return res.status(400).json({
         success: false,
-        message: "Internal server error"
+        message: "Mobile number is required"
       });
     }
-  };
 
+    if (mobile.length !== 10 || !/^\d+$/.test(mobile)) {
+      return res.status(400).json({
+        success: false,
+        message: "Enter valid 10-digit mobile number"
+      });
+    }
 
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiry = new Date(Date.now() + 2 * 60 * 1000);
+
+    // Upsert OTP record for this mobile
+    await TempOtpVerification.findOneAndUpdate(
+      { contactType: "mobile", contactValue: mobile },
+      { otp, otpExpiry, isVerified: false },
+      { upsert: true, new: true }
+    );
+
+    if (process.env.NODE_ENV === "production") {
+      // Twilio SMS
+      await twilioClient.messages.create({
+        body: `Your Technosys verification code is: ${otp}`,
+        from: process.env.TWILIO_PHONE_NUMBER,
+        to: `+91${mobile}`,
+      });
+      return res.status(200).json({
+        success: true,
+        message: "OTP sent successfully",
+        mobile
+      });
+    } else {
+      // Dev mode → return OTP (same as technician)
+      console.log("Customer OTP (Dev Mode):", otp);
+      return res.status(200).json({
+        success: true,
+        message: "OTP sent successfully (Dev Mode)",
+        otp,
+        mobile,
+      });
+    }
+  } catch (error) {
+    console.error("Send customer mobile OTP error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
+};
 
 // Verify Mobile OTP for Customer
 export const verifyCustomerMobileOtp = async (req, res) => {
@@ -1017,8 +1403,87 @@ export const verifyCustomerMobileOtp = async (req, res) => {
 };
 
 
+// // Update Customer Profile
+// export const updateCustomerProfile = async (req, res) => {
+//   try {
+//     const { name, email, address } = req.body;
+//     const customerId = req.userId;
 
+//     const customer = await Customer.findById(customerId);
+//     if (!customer) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Customer not found"
+//       });
+//     }
 
+//     // Update fields if provided
+//     if (name) customer.Name = name;
+//     if (email) customer.Email = email;
+//     if (address) customer.Address = address;
+
+//     await customer.save();
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Profile updated successfully",
+//       data: {
+//         id: customer._id,
+//         name: customer.Name,
+//         mobile: customer.Mobile,
+//         email: customer.Email,
+//         address: customer.Address,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Update profile error:", error);
+    
+//     if (error.code === 11000) {
+//       return res.status(409).json({
+//         success: false,
+//         message: "Email already exists"
+//       });
+//     }
+    
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal server error"
+//     });
+//   }
+// };
+
+// // Get Customer Profile
+// export const getCustomerProfile = async (req, res) => {
+//   try {
+//     const customerId = req.userId;
+
+//     const customer = await Customer.findById(customerId);
+//     if (!customer) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Customer not found"
+//       });
+//     }
+
+//     return res.status(200).json({
+//       success: true,
+//       data: {
+//         id: customer._id,
+//         name: customer.Name,
+//         mobile: customer.Mobile,
+//         email: customer.Email,
+//         address: customer.Address,
+//         createdAt: customer.createdAt,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Get profile error:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal server error"
+//     });
+//   }
+// };
 
 // Logout Customer
 export const logoutCustomer = async (req, res) => {
@@ -1053,8 +1518,9 @@ export const cleanupExpiredOtps = async () => {
     const currentTime = new Date();
     const result = await TempOtpVerification.deleteMany({
       otpExpiry: { $lt: currentTime },
+      isVerified: false,
     });
-
+    
     if (result.deletedCount > 0) {
       console.log(`🧹 Cleaned up ${result.deletedCount} expired OTP records at ${currentTime.toISOString()}`);
     }
@@ -1063,9 +1529,26 @@ export const cleanupExpiredOtps = async () => {
   }
 };
 
+// Run cleanup every 5 minutes (more efficient)
+setInterval(cleanupExpiredOtps, 5 * 60 * 1000);
 
-setInterval(cleanupExpiredOtps, 60 * 1000);
-
-
+// Run cleanup immediately when server starts
 cleanupExpiredOtps();
+// setInterval(cleanupExpiredOtps, 60 * 60 * 1000);
 
+// One-time admin creation endpoint
+
+// export const createAdmin = async (req, res) => {
+//   try {
+//     const { username, password, secret } = req.body;
+//     if (secret !== process.env.ADMIN_CREATION_SECRET) {
+//       return res.status(403).json({ message: "Forbidden" });
+//     }
+//     const hashedPassword = await bcrypt.hash(password, 10);
+//     const admin = new Admin({ username, password: hashedPassword });
+//     await admin.save();
+//     res.status(201).json({ message: "Admin created" });
+//   } catch (err) {
+//     res.status(500).json({ message: err.message });
+//   }
+// };
