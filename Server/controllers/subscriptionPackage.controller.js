@@ -10,10 +10,12 @@ import transporter from "../config/nodemailer.js";
 import { getIo } from "../config/realtime.js";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath } from 'url';
 import PDFDocument from "pdfkit";
 import Razorpay from "razorpay";
 import crypto from "crypto";
+import { generateInvoice } from "../services/invoice.service.js";
+import { verifyRazorpayAndFinalize } from "../services/payment.service.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -33,26 +35,26 @@ export const getAllSubscriptionPackages = async (req, res) => {
     let filter = {};
     // Only apply isActive filter if explicitly requested
     if (isActive !== undefined) {
-      filter.isActive = isActive === "true";
+      filter.isActive = isActive === 'true';
     } else {
       // By default, show active packages to non-admin users
-      if (!req.userType || req.userType !== "admin") {
+      if (!req.userType || req.userType !== 'admin') {
         filter.isActive = true;
       }
     }
 
-    const packages = await SubscriptionPackage.find({}).sort({ price: 1 });
+    const packages = await SubscriptionPackage.find(filter).sort({ price: 1 });
 
     return res.status(200).json({
       success: true,
       message: "Subscription packages retrieved successfully",
-      data: packages,
+      data: packages
     });
   } catch (error) {
     console.error("Get subscription packages error:", error);
     return res.status(500).json({
       success: false,
-      message: error.message || "Internal server error",
+      message: error.message || "Internal server error"
     });
   }
 };
@@ -62,38 +64,33 @@ export const getAllSubscriptionPackages = async (req, res) => {
 // @access  Public (All users)
 export const getSubscriptionPackage = async (req, res) => {
   try {
-    const subscriptionPackage = await SubscriptionPackage.findById(
-      req.params.id
-    );
+    const subscriptionPackage = await SubscriptionPackage.findById(req.params.id);
 
     if (!subscriptionPackage) {
       return res.status(404).json({
         success: false,
-        message: "Subscription package not found",
+        message: "Subscription package not found"
       });
     }
 
     // Non-admin users can only see active packages
-    if (
-      (!req.userType || req.userType !== "admin") &&
-      !subscriptionPackage.isActive
-    ) {
+    if ((!req.userType || req.userType !== 'admin') && !subscriptionPackage.isActive) {
       return res.status(404).json({
         success: false,
-        message: "Subscription package not found",
+        message: "Subscription package not found"
       });
     }
 
     return res.status(200).json({
       success: true,
       message: "Subscription package retrieved successfully",
-      data: subscriptionPackage,
+      data: subscriptionPackage
     });
   } catch (error) {
     console.error("Get subscription package error:", error);
     return res.status(500).json({
       success: false,
-      message: error.message || "Internal server error",
+      message: error.message || "Internal server error"
     });
   }
 };
@@ -109,7 +106,7 @@ export const createSubscriptionPackage = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Validation failed",
-        errors: errors.array(),
+        errors: errors.array()
       });
     }
 
@@ -117,13 +114,13 @@ export const createSubscriptionPackage = async (req, res) => {
 
     // Check if package with same name already exists
     const existingPackage = await SubscriptionPackage.findOne({
-      name: { $regex: new RegExp(`^${name}$`, "i") },
+      name: { $regex: new RegExp(`^${name}$`, 'i') }
     });
 
     if (existingPackage) {
       return res.status(409).json({
         success: false,
-        message: "Subscription package with this name already exists",
+        message: "Subscription package with this name already exists"
       });
     }
 
@@ -132,7 +129,7 @@ export const createSubscriptionPackage = async (req, res) => {
       coins,
       price,
       description,
-      isActive,
+      isActive
     });
 
     await subscriptionPackage.save();
@@ -140,13 +137,13 @@ export const createSubscriptionPackage = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: "Subscription package created successfully",
-      data: subscriptionPackage,
+      data: subscriptionPackage
     });
   } catch (error) {
     console.error("Create subscription package error:", error);
     return res.status(500).json({
       success: false,
-      message: error.message || "Internal server error",
+      message: error.message || "Internal server error"
     });
   }
 };
@@ -162,7 +159,7 @@ export const updateSubscriptionPackage = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Validation failed",
-        errors: errors.array(),
+        errors: errors.array()
       });
     }
 
@@ -173,21 +170,21 @@ export const updateSubscriptionPackage = async (req, res) => {
     if (!existingPackage) {
       return res.status(404).json({
         success: false,
-        message: "Subscription package not found",
+        message: "Subscription package not found"
       });
     }
 
     // Check if another package with same name exists (excluding current package)
     if (name && name !== existingPackage.name) {
       const duplicatePackage = await SubscriptionPackage.findOne({
-        name: { $regex: new RegExp(`^${name}$`, "i") },
-        _id: { $ne: req.params.id },
+        name: { $regex: new RegExp(`^${name}$`, 'i') },
+        _id: { $ne: req.params.id }
       });
 
       if (duplicatePackage) {
         return res.status(409).json({
           success: false,
-          message: "Subscription package with this name already exists",
+          message: "Subscription package with this name already exists"
         });
       }
     }
@@ -199,10 +196,8 @@ export const updateSubscriptionPackage = async (req, res) => {
         name: name || existingPackage.name,
         coins: coins !== undefined ? coins : existingPackage.coins,
         price: price !== undefined ? price : existingPackage.price,
-        description:
-          description !== undefined ? description : existingPackage.description,
-        isActive:
-          isActive !== undefined ? isActive : existingPackage.isActive,
+        description: description !== undefined ? description : existingPackage.description,
+        isActive: isActive !== undefined ? isActive : existingPackage.isActive
       },
       { new: true, runValidators: true }
     );
@@ -210,13 +205,13 @@ export const updateSubscriptionPackage = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Subscription package updated successfully",
-      data: updatedPackage,
+      data: updatedPackage
     });
   } catch (error) {
     console.error("Update subscription package error:", error);
     return res.status(500).json({
       success: false,
-      message: error.message || "Internal server error",
+      message: error.message || "Internal server error"
     });
   }
 };
@@ -226,26 +221,24 @@ export const updateSubscriptionPackage = async (req, res) => {
 // @access  Admin only
 export const deleteSubscriptionPackage = async (req, res) => {
   try {
-    const subscriptionPackage = await SubscriptionPackage.findByIdAndDelete(
-      req.params.id
-    );
+    const subscriptionPackage = await SubscriptionPackage.findByIdAndDelete(req.params.id);
 
     if (!subscriptionPackage) {
       return res.status(404).json({
         success: false,
-        message: "Subscription package not found",
+        message: "Subscription package not found"
       });
     }
 
     return res.status(200).json({
       success: true,
-      message: "Subscription package deleted successfully",
+      message: "Subscription package deleted successfully"
     });
   } catch (error) {
     console.error("Delete subscription package error:", error);
     return res.status(500).json({
       success: false,
-      message: error.message || "Internal server error",
+      message: error.message || "Internal server error"
     });
   }
 };
@@ -255,14 +248,12 @@ export const deleteSubscriptionPackage = async (req, res) => {
 // @access  Admin only
 export const togglePackageStatus = async (req, res) => {
   try {
-    const subscriptionPackage = await SubscriptionPackage.findById(
-      req.params.id
-    );
+    const subscriptionPackage = await SubscriptionPackage.findById(req.params.id);
 
     if (!subscriptionPackage) {
       return res.status(404).json({
         success: false,
-        message: "Subscription package not found",
+        message: "Subscription package not found"
       });
     }
 
@@ -271,15 +262,14 @@ export const togglePackageStatus = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `Package ${subscriptionPackage.isActive ? "activated" : "deactivated"
-        } successfully`,
-      data: subscriptionPackage,
+      message: `Package ${subscriptionPackage.isActive ? 'activated' : 'deactivated'} successfully`,
+      data: subscriptionPackage
     });
   } catch (error) {
     console.error("Toggle package status error:", error);
     return res.status(500).json({
       success: false,
-      message: error.message || "Internal server error",
+      message: error.message || "Internal server error"
     });
   }
 };
@@ -289,20 +279,15 @@ export const togglePackageStatus = async (req, res) => {
 // @access  Technician only
 export const purchaseSubscription = async (req, res) => {
   try {
-    if (!req.userType || req.userType !== "technician") {
-      return res
-        .status(403)
-        .json({ success: false, message: "Access denied. Technician only." });
+    if (!req.userType || req.userType !== 'technician') {
+      return res.status(403).json({ success: false, message: 'Access denied. Technician only.' });
     }
 
     const packageId = req.params.id;
     const subscriptionPackage = await SubscriptionPackage.findById(packageId);
 
     if (!subscriptionPackage || !subscriptionPackage.isActive) {
-      return res.status(404).json({
-        success: false,
-        message: "Subscription package not found or not active",
-      });
+      return res.status(404).json({ success: false, message: 'Subscription package not found or not active' });
     }
 
     const technicianId = req.userId;
@@ -311,7 +296,7 @@ export const purchaseSubscription = async (req, res) => {
     const history = new SubscriptionHistory({
       TechnicianID: technicianId,
       PackageID: subscriptionPackage._id,
-      PurchasedAt: new Date(),
+      PurchasedAt: new Date()
     });
 
     await history.save();
@@ -323,7 +308,7 @@ export const purchaseSubscription = async (req, res) => {
       { TechnicianID: technicianId },
       {
         $inc: { BalanceCoins: coinsToAdd },
-        $set: { LastUpdate: new Date() },
+        $set: { LastUpdate: new Date() }
       },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
@@ -337,15 +322,12 @@ export const purchaseSubscription = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Subscription purchased successfully",
-      data: { history, wallet: updatedWallet },
+      message: 'Subscription purchased successfully',
+      data: { history, wallet: updatedWallet }
     });
   } catch (error) {
-    console.error("Purchase subscription error:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Internal server error",
-    });
+    console.error('Purchase subscription error:', error);
+    return res.status(500).json({ success: false, message: error.message || 'Internal server error' });
   }
 };
 
@@ -354,33 +336,24 @@ export const purchaseSubscription = async (req, res) => {
 // @access  Technician only
 export const getSubscriptionHistory = async (req, res) => {
   try {
-    if (!req.userType || req.userType !== "technician") {
-      return res
-        .status(403)
-        .json({ success: false, message: "Access denied. Technician only." });
+    if (!req.userType || req.userType !== 'technician') {
+      return res.status(403).json({ success: false, message: 'Access denied. Technician only.' });
     }
 
     const technicianId = req.userId;
 
-    const history = await SubscriptionHistory.find({
-      TechnicianID: technicianId,
-    })
-      .populate({
-        path: "PackageID",
-        select: "name coins price description",
-      })
+    const history = await SubscriptionHistory.find({ TechnicianID: technicianId })
+      .populate({ path: 'PackageID', select: 'name coins price description' })
       .sort({ PurchasedAt: -1 })
       .lean();
 
     // Attach invoice URL when available using batched queries to avoid N+1 DB calls
     try {
-      const historyIds = history.map((h) => h._id);
+      const historyIds = history.map(h => h._id);
       if (historyIds.length > 0) {
         // Fetch all payments that reference these history entries
-        const payments = await SubscriptionPayment.find({
-          HistoryID: { $in: historyIds },
-        })
-          .select("_id HistoryID")
+        const payments = await SubscriptionPayment.find({ HistoryID: { $in: historyIds } })
+          .select('_id HistoryID')
           .lean();
 
         // Map historyId -> payment (if multiple payments per history exist we pick the first)
@@ -391,14 +364,11 @@ export const getSubscriptionHistory = async (req, res) => {
         }
 
         // Fetch invoices for these payments in one query
-        const paymentIds = payments.map((p) => p._id);
+        const paymentIds = payments.map(p => p._id);
         let invoices = [];
         if (paymentIds.length > 0) {
-          invoices = await Invoice.find({
-            ref_type: "SubscriptionPayment",
-            ref_id: { $in: paymentIds },
-          })
-            .select("ref_id invoice_pdf")
+          invoices = await Invoice.find({ ref_type: 'SubscriptionPayment', ref_id: { $in: paymentIds } })
+            .select('ref_id invoice_pdf')
             .lean();
         }
 
@@ -423,21 +393,15 @@ export const getSubscriptionHistory = async (req, res) => {
         for (const h of history) h.invoice_pdf = null;
       }
     } catch (attachErr) {
-      console.error("Attach invoice batch error", attachErr);
+      console.error('Attach invoice batch error', attachErr);
       for (const h of history) h.invoice_pdf = null;
     }
 
-    return res.status(200).json({
-      success: true,
-      message: "Purchase history retrieved",
-      data: history,
-    });
+
+    return res.status(200).json({ success: true, message: 'Purchase history retrieved', data: history });
   } catch (error) {
-    console.error("Get subscription history error:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Internal server error",
-    });
+    console.error('Get subscription history error:', error);
+    return res.status(500).json({ success: false, message: error.message || 'Internal server error' });
   }
 };
 
@@ -446,29 +410,21 @@ export const getSubscriptionHistory = async (req, res) => {
 // @access  Technician only
 export const createRazorpayOrder = async (req, res) => {
   try {
-    if (!req.userType || req.userType !== "technician") {
-      return res
-        .status(403)
-        .json({ success: false, message: "Access denied. Technician only." });
+    if (!req.userType || req.userType !== 'technician') {
+      return res.status(403).json({ success: false, message: 'Access denied. Technician only.' });
     }
 
     const packageId = req.params.id;
     const subscriptionPackage = await SubscriptionPackage.findById(packageId);
 
     if (!subscriptionPackage || !subscriptionPackage.isActive) {
-      return res.status(404).json({
-        success: false,
-        message: "Subscription package not found or not active",
-      });
+      return res.status(404).json({ success: false, message: 'Subscription package not found or not active' });
     }
 
     // Ensure Razorpay keys are present
     if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-      console.error("Razorpay keys not configured in env");
-      return res.status(500).json({
-        success: false,
-        message: "Razorpay keys not configured on server",
-      });
+      console.error('Razorpay keys not configured in env');
+      return res.status(500).json({ success: false, message: 'Razorpay keys not configured on server' });
     }
 
     const amount = Math.round((subscriptionPackage.price || 0) * 100); // amount in paise
@@ -478,18 +434,16 @@ export const createRazorpayOrder = async (req, res) => {
     let receipt = rawReceipt;
     if (receipt.length > 40) {
       // try a compact form using last 8 chars of userId and last 6 of timestamp
-      receipt = `rcpt_${String(req.userId).slice(-8)}_${String(
-        Date.now()
-      ).slice(-6)}`;
+      receipt = `rcpt_${String(req.userId).slice(-8)}_${String(Date.now()).slice(-6)}`;
     }
     if (receipt.length > 40) {
       // fallback to a short random hex string
-      receipt = `rcpt_${crypto.randomBytes(8).toString("hex")}`;
+      receipt = `rcpt_${crypto.randomBytes(8).toString('hex')}`;
     }
 
     const orderOptions = {
       amount,
-      currency: "INR",
+      currency: 'INR',
       receipt,
       payment_capture: 1,
     };
@@ -500,27 +454,20 @@ export const createRazorpayOrder = async (req, res) => {
     } catch (provErr) {
       // log provider error details for debugging (avoid leaking secrets)
       try {
-        console.error(
-          "Razorpay provider error creating order:",
-          provErr && provErr.message ? provErr.message : provErr
-        );
+        console.error('Razorpay provider error creating order:', provErr && provErr.message ? provErr.message : provErr);
         // log full object for debugging (this stays server-side)
-        console.error("Razorpay provider full error:", provErr);
+        console.error('Razorpay provider full error:', provErr);
       } catch (logErr) {
-        console.error("Error logging provider error", logErr);
+        console.error('Error logging provider error', logErr);
       }
 
       // Try to extract safe detail fields
-      const provDetail =
-        provErr?.error?.description ||
-        provErr?.error ||
-        provErr?.message ||
-        (typeof provErr === "string" ? provErr : undefined);
+      const provDetail = provErr?.error?.description || provErr?.error || provErr?.message || (typeof provErr === 'string' ? provErr : undefined);
 
       return res.status(502).json({
         success: false,
-        message: "Failed to create payment order with provider",
-        detail: provDetail,
+        message: 'Failed to create payment order with provider',
+        detail: provDetail
       });
     }
 
@@ -529,8 +476,8 @@ export const createRazorpayOrder = async (req, res) => {
       TechnicianID: req.userId,
       PackageID: subscriptionPackage._id,
       Amount: subscriptionPackage.price,
-      Method: "Razorpay",
-      Status: "Pending",
+      Method: 'Razorpay',
+      Status: 'Pending',
       ProviderOrderId: order.id,
     });
 
@@ -538,16 +485,13 @@ export const createRazorpayOrder = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Razorpay order created",
+      message: 'Razorpay order created',
       data: { order, paymentId: payment._id },
-      key: process.env.RAZORPAY_KEY_ID,
+      key: process.env.RAZORPAY_KEY_ID
     });
   } catch (error) {
-    console.error("Create Razorpay order error:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Internal server error",
-    });
+    console.error('Create Razorpay order error:', error);
+    return res.status(500).json({ success: false, message: error.message || 'Internal server error' });
   }
 };
 
@@ -556,547 +500,74 @@ export const createRazorpayOrder = async (req, res) => {
 // @access  Technician only
 export const verifyRazorpayPayment = async (req, res) => {
   try {
-    if (!req.userType || req.userType !== "technician") {
-      return res
-        .status(403)
-        .json({ success: false, message: "Access denied. Technician only." });
+    if (!req.userType || req.userType !== 'technician') {
+      return res.status(403).json({ success: false, message: 'Access denied. Technician only.' });
     }
 
-    const {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, paymentId } = req.body;
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !paymentId) {
+      return res.status(400).json({ success: false, message: 'Incomplete payment verification data' });
+    }
+
+    // Use shared payment service to verify signature and finalize
+    let updatedWallet = null;
+    let history = null;
+
+    const result = await verifyRazorpayAndFinalize({
+      paymentModel: SubscriptionPayment,
+      paymentId,
       razorpay_order_id,
       razorpay_payment_id,
       razorpay_signature,
-      paymentId,
-    } = req.body;
+      onSuccess: async (paymentRecord) => {
+        // Create subscription history
+        history = new SubscriptionHistory({
+          TechnicianID: req.userId,
+          PackageID: paymentRecord.PackageID,
+          PurchasedAt: new Date()
+        });
+        await history.save();
 
-    if (
-      !razorpay_order_id ||
-      !razorpay_payment_id ||
-      !razorpay_signature ||
-      !paymentId
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Incomplete payment verification data",
-      });
-    }
+        // Update payment record with history id
+        paymentRecord.HistoryID = history._id;
+        await paymentRecord.save();
 
-    // verify signature
-    const generated_signature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-      .digest("hex");
+        // Update or create technician wallet
+        const subscriptionPackage = await SubscriptionPackage.findById(paymentRecord.PackageID);
+        const coinsToAdd = subscriptionPackage?.coins || 0;
 
-    const paymentRecord = await SubscriptionPayment.findById(paymentId);
-    if (!paymentRecord) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Payment record not found" });
-    }
+        updatedWallet = await TechnicianWallet.findOneAndUpdate(
+          { TechnicianID: req.userId },
+          {
+            $inc: { BalanceCoins: coinsToAdd },
+            $set: { LastUpdate: new Date() }
+          },
+          { new: true, upsert: true, setDefaultsOnInsert: true }
+        );
 
-    if (generated_signature !== razorpay_signature) {
-      paymentRecord.Status = "Failed";
-      paymentRecord.ProviderPaymentId = razorpay_payment_id;
-      paymentRecord.ProviderSignature = razorpay_signature;
-      await paymentRecord.save();
-
-      return res.status(400).json({
-        success: false,
-        message: "Payment signature verification failed",
-      });
-    }
-
-    // Signature valid -> mark success and create history + update wallet
-    paymentRecord.Status = "Success";
-    paymentRecord.ProviderPaymentId = razorpay_payment_id;
-    paymentRecord.ProviderSignature = razorpay_signature;
-    await paymentRecord.save();
-
-    // Create subscription history
-    const history = new SubscriptionHistory({
-      TechnicianID: req.userId,
-      PackageID: paymentRecord.PackageID,
-      PurchasedAt: new Date(),
-    });
-    await history.save();
-
-    // Update payment record with history id
-    paymentRecord.HistoryID = history._id;
-    await paymentRecord.save();
-
-    // Update or create technician wallet
-    const subscriptionPackage = await SubscriptionPackage.findById(
-      paymentRecord.PackageID
-    );
-    const coinsToAdd = subscriptionPackage?.coins || 0;
-
-    const updatedWallet = await TechnicianWallet.findOneAndUpdate(
-      { TechnicianID: req.userId },
-      {
-        $inc: { BalanceCoins: coinsToAdd },
-        $set: { LastUpdate: new Date() },
-      },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
-    );
-
-    // Generate invoice PDF, store it and email to technician
-    (async () => {
-      try {
-        // fetch technician details
-        const tech = await Technician.findById(req.userId).lean();
-        const invoiceDir = path.join(process.cwd(), "uploads", "invoices");
-        if (!fs.existsSync(invoiceDir))
-          fs.mkdirSync(invoiceDir, { recursive: true });
-
-        const invoiceFilename = `invoice_${String(paymentRecord._id)}.pdf`;
-        const invoicePath = path.join(invoiceDir, invoiceFilename);
-
-        try {
-          // prepare HTML populated from template
-          const invoiceDate = new Date().toLocaleDateString("en-GB", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          });
-          const amountDisplay = `₹${(
-            paymentRecord.Amount ||
-            subscriptionPackage?.price ||
-            0
-          ).toFixed(2)}`;
-
-          // ✅ Build base URL from current request (works for localhost + Render)
-          const baseUrl = `${req.protocol}://${req.get("host")}`;
-          const logoUrl = `${baseUrl}/uploads/logo.png`;
-
-          const html = `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Invoice</title>
-  <style>
-    :root{ --accent:#4a56e2; --muted:#f3f6fb; --text:#333; --light:#6b7280; --border:#e6eaf2; --paper-bg:#ffffff; font-size:14px; }
-    *{box-sizing:border-box}
-    body{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;  padding:30px 20px; }
-    .sheet{ max-width:800px; margin:0 auto; border-radius:4px;overflow:hidden; }
-    .pad{padding:28px 36px}
-    .header{display:flex;align-items:flex-start;justify-content:space-between}
-    .brand{display:flex;gap:12px;align-items:center}
-    .brand h1{font-size:20px;margin:0;padding:0;line-height:1}
-    .meta{ text-align:right;color:var(--light) }
-    .meta .date{font-weight:600;color:var(--accent)}
-    .meta .invoice{margin-top:6px;font-weight:600}
-    .addresses{display:flex;gap:20px;margin-top:18px}
-    .addr{flex:1;padding:18px;border-radius:4px}
-    .addr h4{margin:0 0 8px 0}
-    .muted small{display:block;color:var(--light)}
-    table{width:100%;border-collapse:collapse;margin-top:26px}
-    thead th{border-bottom:2px solid var(--border);text-align:left;padding:12px 8px;color:var(--accent);font-weight:700}
-    tbody td{padding:14px 8px;border-bottom:1px solid var(--border);vertical-align:top}
-    tbody tr td:nth-child(1){width:32px}
-    .col-price,.col-qty,.col-sub{white-space:nowrap;text-align:right}
-    .totals{display:flex;justify-content:flex-end;margin-top:18px}
-    .totals .box{width:240px}
-    .totals .row{display:flex;justify-content:space-between;padding:8px 0;color:var(--light)}
-    .totals .row.total{background:linear-gradient(180deg,#3f45d6,#2b2fc4);color:#fff;padding:12px;border-radius:4px;margin-top:8px;align-items:center}
-    .totals .row.total .label{font-weight:700}
-    .payment{margin-top:30px}
-    .payment h5{color:var(--accent);margin-bottom:8px}
-    .notes{margin-top:12px;color:var(--light);font-size:13px}
-    .footer{background:var(--muted);padding:12px 36px;font-size:13px;color:var(--light);display:flex;justify-content:space-between;align-items:center}
-  </style>
-</head>
-<body>
-  <div class="sheet">
-    <div class="pad">
-      <div class="header">
-        <div class="brand">
-          <div class="logo" style="padding:0;margin:0;width:55px;height:55px;display:flex;align-items:center;justify-content:center;">
-            <img src="${logoUrl}" alt="Technosys Logo" style="width:55px;height:55px;object-fit:contain" />
-          </div>
-          <div style="margin:0;padding:0;line-height:1;">
-            <h1>Technosys</h1>
-          </div>
-        </div>
-        <div class="meta">
-          <div class="date">${invoiceDate}</div>
-          <div class="invoice">Invoice # <strong>${paymentRecord._id}</strong></div>
-        </div>
-      </div>
-
-      <table class="addresses-table" style="width:100%;border-collapse:separate;border-spacing:0;margin-top:18px;">
-        <tr>
-          <td style="vertical-align:top;padding-right:12px;width:50%;">
-            <div class="addr" style="margin:0">
-              <h4>Supplier Company INC</h4>
-              <div class="muted">
-                <small>Number: 23456789</small>
-                <small>6622 Abshire Mills</small>
-                <small>Port Orlofurt, 05820</small>
-                <small>United States</small>
-              </div>
-            </div>
-          </td>
-          <td style="vertical-align:top;padding-left:12px;width:50%;text-align:right;">
-            <div class="addr" style="margin:0;text-align:right">
-              <h4>${tech?.Name || "Customer"}</h4>
-              <div class="muted" style="text-align:right">
-                <small>Number: ${tech?.MobileNumber || ""}</small>
-                <small>Email: ${tech?.Email || ""}</small>
-              </div>
-            </div>
-          </td>
-        </tr>
-      </table>
-
-      <table>
-        <thead>
-          <tr>
-            <th>Index</th>
-            <th>Product details</th>
-            <th class="col-price">Price</th>
-            <th class="col-qty">Qty.</th>
-            <th class="col-sub">Subtotal</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>1.</td>
-            <td>${subscriptionPackage?.name || "Subscription Package"}</td>
-            <td class="col-price">${amountDisplay}</td>
-            <td class="col-qty">${subscriptionPackage?.coins || 0}</td>
-            <td class="col-sub">${amountDisplay}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div class="totals">
-        <div class="box">
-          <div class="row"><div class="label">Net total:</div><div class="value">${amountDisplay}</div></div>
-          <div class="row total"><div class="label">Total:</div><div class="value">${amountDisplay}</div></div>
-        </div>
-      </div>
-
-      <div class="payment">
-        <h5>PAYMENT DETAILS</h5>
-        <div>
-          Method: ${paymentRecord.Method || "Razorpay"}<br>
-          Payment ID: ${paymentRecord.ProviderPaymentId || "-"}<br>
-        </div>
-
-        <div class="notes">
-          <strong>Notes</strong>
-          <p>Thank you for your purchase. If you need help, contact Technosys support.</p>
-        </div>
-      </div>
-    </div>
-
-    <div class="footer">
-      <div>Supplier Company</div>
-      <div>info@company.com | +1-202-555-0106</div>
-    </div>
-  </div>
-</body>
-</html>`;
-
-          let pdfGenerated = false;
-
-          // Try Puppeteer (headless Chromium) for exact rendering of the HTML template
+        // Generate invoice non-blocking
+        (async () => {
           try {
-            const puppeteerModule = await import("puppeteer");
-            const puppeteer = puppeteerModule.default || puppeteerModule;
-
-            const browser = await puppeteer.launch({
-              headless: "new",
-              args: [
-                "--no-sandbox",
-                "--disable-setuid-sandbox",
-                "--disable-gpu",
-                "--disable-dev-shm-usage",
-                "--disable-software-rasterizer",
-              ],
-            });
-
-
-            const page = await browser.newPage();
-            await page.setContent(html, { waitUntil: "networkidle0" });
-            await page.pdf({
-              path: invoicePath,
-              format: "A4",
-              printBackground: true,
-              margin: {
-                top: "16mm",
-                bottom: "16mm",
-                left: "12mm",
-                right: "12mm",
-              },
-            });
-            await browser.close();
-            pdfGenerated = true;
-          } catch (puppErr) {
-            console.warn(
-              "Puppeteer PDF generation failed, falling back to PDFKit:",
-              puppErr?.message || puppErr
-            );
-            pdfGenerated = false;
+            const tech = await Technician.findById(req.userId).lean();
+            const subscriptionPackage = await SubscriptionPackage.findById(paymentRecord.PackageID).lean();
+            generateInvoice({ refType: 'SubscriptionPayment', refId: paymentRecord._id, paymentRecord, subscriptionPackage, recipient: tech, historyId: paymentRecord.HistoryID })
+              .catch(err => console.error('Invoice generation error', err));
+          } catch (err) {
+            console.error('Invoice generation dispatch error', err);
           }
-
-          // Fallback to PDFKit if Puppeteer isn't available or failed
-          if (!pdfGenerated) {
-            const doc = new PDFDocument({ size: "A4", margin: 40 });
-            const stream = fs.createWriteStream(invoicePath);
-            doc.pipe(stream);
-
-            const ACCENT = "#4a56e2";
-            const LIGHT = "#6b7280";
-            const BORDER = "#e6eaf2";
-
-            // ✅ Use local file path for logo (works same on localhost + Render)
-            const headerY = doc.y;
-            const logoPath = path.join(process.cwd(), "uploads", "logo.png");
-            try {
-              doc.image(logoPath, 40, headerY, { width: 56, height: 56 });
-            } catch (e) {
-              // if logo file missing, draw placeholder
-              doc.rect(40, headerY, 56, 28).fill("#6b46ff");
-              doc
-                .fillColor("#fff")
-                .fontSize(14)
-                .text("T", 58, headerY + 6, { align: "center" });
-              doc.fillColor("#000");
-            }
-
-            doc
-              .fontSize(22)
-              .fillColor(ACCENT)
-              .text("Technosys Invoice", 0, headerY, { align: "center" })
-              .moveDown(0.5);
-            doc
-              .fontSize(11)
-              .fillColor(LIGHT)
-              .text(`Date: ${invoiceDate}`)
-              .text(`Invoice ID: ${paymentRecord._id}`)
-              .text(
-                `Payment ID: ${paymentRecord.ProviderPaymentId || "-"}`
-              )
-              .moveDown(1.2);
-
-            doc
-              .fontSize(13)
-              .fillColor("#000")
-              .text("Supplier", { underline: true });
-            doc
-              .fontSize(11)
-              .fillColor(LIGHT)
-              .text("Technosys Pvt Ltd")
-              .text("Customer Support Street, India")
-              .text("Email: support@technosys.com")
-              .moveDown(1);
-
-            doc
-              .fontSize(13)
-              .fillColor("#000")
-              .text("Billed To:", { underline: true });
-            doc
-              .fontSize(11)
-              .fillColor(LIGHT)
-              .text(`${tech?.Name || ""}`)
-              .text(`${tech?.Email || ""}`)
-              .text(`${tech?.MobileNumber || ""}`)
-              .moveDown(1);
-
-            const tableTop = doc.y + 5;
-            doc.fontSize(12).fillColor(ACCENT);
-            doc.text("Index", 40, tableTop);
-            doc.text("Product Details", 100, tableTop);
-            doc.text("Price", 330, tableTop, { width: 80, align: "right" });
-            doc.text("Qty", 410, tableTop, { width: 60, align: "right" });
-            doc.text("Subtotal", 470, tableTop, { width: 80, align: "right" });
-
-            doc
-              .moveTo(40, tableTop + 15)
-              .lineTo(550, tableTop + 15)
-              .strokeColor(BORDER)
-              .lineWidth(1)
-              .stroke();
-
-            let rowY = tableTop + 30;
-            const priceNum = Number(
-              paymentRecord.Amount || subscriptionPackage?.price || 0
-            );
-            doc.fontSize(11).fillColor("#000");
-            doc.text("1.", 40, rowY);
-            doc.text(
-              subscriptionPackage?.name || "Subscription Package",
-              100,
-              rowY
-            );
-            doc.text(`₹${priceNum.toFixed(2)}`, 330, rowY, {
-              width: 80,
-              align: "right",
-            });
-            doc.text("1", 410, rowY, { width: 60, align: "right" });
-            doc.text(`₹${priceNum.toFixed(2)}`, 470, rowY, {
-              width: 80,
-              align: "right",
-            });
-
-            rowY += 25;
-            doc.moveDown(2);
-
-            const totalY = rowY + 20;
-            doc
-              .fontSize(12)
-              .fillColor(LIGHT)
-              .text("Net Total:", 350, totalY, {
-                width: 120,
-                align: "right",
-              });
-            doc
-              .fontSize(12)
-              .fillColor("#000")
-              .text(`₹${priceNum.toFixed(2)}`, 470, totalY, {
-                width: 80,
-                align: "right",
-              });
-
-            doc.rect(350, totalY + 30, 200, 30).fill(ACCENT);
-            doc
-              .fillColor("#fff")
-              .fontSize(13)
-              .text("Total:", 360, totalY + 38);
-            doc.text(`₹${priceNum.toFixed(2)}`, 470, totalY + 38, {
-              width: 80,
-              align: "right",
-            });
-            doc.fillColor("#000");
-
-            doc.moveDown(4);
-            doc.fontSize(12).fillColor(ACCENT).text("Notes");
-            doc
-              .fontSize(11)
-              .fillColor(LIGHT)
-              .text(
-                "Thank you for your purchase. If you need help, contact Technosys support."
-              )
-              .moveDown(2);
-
-            doc
-              .moveTo(40, 780)
-              .lineTo(550, 780)
-              .strokeColor(BORDER)
-              .stroke();
-            doc.fontSize(10).fillColor(LIGHT).text("Technosys Pvt Ltd", 40, 790);
-            doc.text("support@technosys.com | +91 9876543210", 350, 790, {
-              align: "right",
-            });
-
-            doc.end();
-
-            // wait for stream finish when using PDFKit
-            await new Promise((resolve, reject) => {
-              stream.on("finish", resolve);
-              stream.on("error", reject);
-            });
-          }
-
-          // store Invoice document
-          const invoiceDoc = new Invoice({
-            ref_type: "SubscriptionPayment",
-            ref_id: paymentRecord._id,
-            invoice_pdf: `/uploads/invoices/${invoiceFilename}`,
-          });
-          await invoiceDoc.save();
-
-          // Emit a synthetic SubscriptionHistory db_change so clients subscribed
-          // to SubscriptionHistory will receive an update and can refresh their
-          // view
-          try {
-            const io = getIo();
-            if (io && paymentRecord.HistoryID) {
-              const histDoc = await SubscriptionHistory.findById(
-                paymentRecord.HistoryID
-              )
-                .populate({
-                  path: "PackageID",
-                  select: "name coins price description",
-                })
-                .lean();
-
-              if (histDoc) {
-                histDoc.invoice_pdf = invoiceDoc.invoice_pdf;
-                io.emit("db_change", {
-                  model: "SubscriptionHistory",
-                  operation: "update",
-                  doc: histDoc,
-                });
-              }
-            }
-          } catch (emitErr) {
-            console.warn(
-              "Realtime emit for SubscriptionHistory after invoice save failed",
-              emitErr
-            );
-          }
-
-          // send email with attachment if email exists
-          if (tech?.Email) {
-            const mailOptions = {
-              from:
-                process.env.SENDER_EMAIL ||
-                process.env.SMTP_FROM ||
-                process.env.SMTP_USER,
-              to: tech.Email,
-              subject: "Your Technosys Invoice",
-              html:
-                `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">` +
-                `<h2 style="color: #155DFC; text-align: center;">Invoice from Technosys</h2>` +
-                `<p>Dear <strong>${tech?.Name || ""}</strong>,</p>` +
-                `<p>Thank you for your purchase. Please find the invoice attached for your recent subscription.</p>` +
-                `<div style="background-color: #f3f4f6; padding: 12px; border-radius: 8px; margin: 18px 0;">` +
-                `<p style="margin: 0;"><strong>Invoice Details</strong></p>` +
-                `<ul style="margin: 8px 0 0 16px; padding: 0;">` +
-                `<li><strong>Invoice ID:</strong> ${paymentRecord._id}</li>` +
-                `<li><strong>Payment ID:</strong> ${paymentRecord.ProviderPaymentId || ""
-                }</li>` +
-                `<li><strong>Package:</strong> ${subscriptionPackage?.name || ""
-                }</li>` +
-                `<li><strong>Amount:</strong> ${amountDisplay}</li>` +
-                `</ul>` +
-                `</div>` +
-                `<p>If you have any questions, please contact our support team.</p>` +
-                `<p>Best regards,<br/><strong>Technosys Team</strong></p>` +
-                `<hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;"/>` +
-                `<p style="color: #6b7280; font-size: 12px; text-align: center;">This is an automated message. Please do not reply to this email.</p>` +
-                `</div>`,
-              attachments: [{ filename: invoiceFilename, path: invoicePath }],
-            };
-
-            try {
-              await transporter.sendMail(mailOptions);
-              console.log(`Invoice email sent to: ${tech.Email}`);
-            } catch (mailErr) {
-              console.error("Invoice email send failed", mailErr);
-            }
-          }
-        } catch (invErr) {
-          console.error("Invoice generation error", invErr);
-        }
-      } catch (invErr) {
-        console.error("Invoice generation error", invErr);
+        })();
       }
-    })();
+    });
 
-    return res.status(200).json({
-      success: true,
-      message: "Payment verified and subscription applied",
-      data: { history, wallet: updatedWallet, payment: paymentRecord },
-    });
+    if (!result.success) {
+      // signature verification failed; result.paymentRecord is available
+      return res.status(400).json({ success: false, message: 'Payment signature verification failed' });
+    }
+
+    return res.status(200).json({ success: true, message: 'Payment verified and subscription applied', data: { history, wallet: updatedWallet, payment: result.paymentRecord } });
   } catch (error) {
-    console.error("Verify Razorpay payment error:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Internal server error",
-    });
+    console.error('Verify Razorpay payment error:', error);
+    return res.status(500).json({ success: false, message: error.message || 'Internal server error' });
   }
 };

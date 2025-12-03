@@ -748,7 +748,7 @@ const TechnicianRequest = () => {
 
       {/* Reject Modal */}
       {showRejectModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn" onClick={(e) => {
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn" onClick={(e) => {
           if (e.target === e.currentTarget) {
             setShowRejectModal(null);
             setRejectReason("");
@@ -787,7 +787,7 @@ const TechnicianRequest = () => {
 
       {/* Details Modal */}
       {showDetailsModal && selectedTechnician && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-start md:items-center justify-center p-4 z-50 animate-fadeIn overflow-auto" onClick={(e) => {
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start md:items-center justify-center p-4 z-50 animate-fadeIn overflow-auto" onClick={(e) => {
           if (e.target === e.currentTarget) {
             setShowDetailsModal(false);
           }

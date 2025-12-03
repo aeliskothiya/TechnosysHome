@@ -331,7 +331,7 @@ export default function AdminSubscriptions() {
   const CoinBadge = ({ coins }) => (
     <div className="flex items-center space-x-2">
       <div className="flex items-center justify-center w-5 h-5 bg-yellow-300 rounded-full">
-        <span className="text-xs font-bold text-yellow-900">C</span>
+        <span className="text-xs font-bold text-black">C</span>
       </div>
       <div className="text-gray-600 font-medium text-sm">{Number(coins).toLocaleString()}</div>
     </div>

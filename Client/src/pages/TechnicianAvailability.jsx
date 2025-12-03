@@ -9,6 +9,7 @@ import {
   Trash2,
   CheckCircle,
   XCircle,
+  Lock,
   Loader2,
   ChevronLeft,
   ChevronRight,
@@ -85,6 +86,17 @@ export default function TechnicianAvailability() {
   const monthName = calendarMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const today = new Date();
   const todayStr = formatLocalDate(today);
+  // Use a single "now" reference during render to avoid inconsistent comparisons
+  const now = new Date();
+  const twoHoursFromNow = now.getTime() + 2 * 60 * 60 * 1000;
+
+  // Helper to build a local Date for a slot on a given YYYY-MM-DD date string
+  const slotStartDate = (dateStr, slot) => {
+    const [start] = slot.split('-');
+    const [h, m] = start.split(':').map((s) => parseInt(s, 10));
+    const [yy, mm, dd] = dateStr.split('-').map((s) => parseInt(s, 10));
+    return new Date(yy, mm - 1, dd, h, m, 0, 0);
+  };
   
   const handlePrevMonth = () => {
     setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1));
@@ -122,6 +134,7 @@ export default function TechnicianAvailability() {
 
   const allSlots = generateSlots();
   const [selectedSlots, setSelectedSlots] = useState([]);
+  // existingSlots will hold objects from server: { slot: '08:00-09:00', status: 'available'|'booked' }
   const [existingSlots, setExistingSlots] = useState([]); // from server
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -139,7 +152,8 @@ export default function TechnicianAvailability() {
         });
 
         if (data && data.data && Array.isArray(data.data.timeSlots)) {
-          setExistingSlots(data.data.timeSlots.map((t) => t.slot));
+          // Keep full objects to preserve status information
+          setExistingSlots(data.data.timeSlots);
           setSelectedSlots(
             data.data.timeSlots.map((t) => (t.status === "available" ? t.slot : null)).filter(Boolean)
           );
@@ -160,12 +174,32 @@ export default function TechnicianAvailability() {
   }, [date, backendUrl]);
 
   const toggleSlot = (slot) => {
+    // Determine if slot is protected: booked or starts within 2 hours
+    const existing = existingSlots.find((s) => s.slot === slot);
+    const slotStart = slotStartDate(date, slot);
+    const isPast = slotStart.getTime() < now.getTime();
+    const isWithin2Hours = slotStart.getTime() < twoHoursFromNow;
+    const isBooked = existing?.status === 'booked';
+
+    // Disallow toggling if the slot is booked, already past, or within the 2-hour lock window
+    if (isBooked || isPast || isWithin2Hours) return;
+
     if (selectedSlots.includes(slot)) {
       setSelectedSlots(selectedSlots.filter((s) => s !== slot));
     } else {
       setSelectedSlots([...selectedSlots, slot]);
     }
   };
+
+  // compute editable slots for the current date: not booked and not starting within 2 hours
+  const editableSlots = allSlots.filter((slot) => {
+    const existing = existingSlots.find((s) => s.slot === slot);
+    const status = existing?.status || null;
+    const slotStart = slotStartDate(date, slot);
+    const isPast = slotStart.getTime() < now.getTime();
+    const isWithin2Hours = slotStart.getTime() < twoHoursFromNow;
+    return status !== 'booked' && !isPast && !isWithin2Hours;
+  });
 
   const handleSubmit = async () => {
     // client-side validation: prevent submitting past dates
@@ -179,7 +213,12 @@ export default function TechnicianAvailability() {
       const { data } = await axios.post(`${backendUrl}/api/technician-availability`, payload, { withCredentials: true });
       if (data && data.success) {
         toast.success("Availability saved successfully!");
-        setExistingSlots(selectedSlots);
+        // Prefer server-returned timeslots if present
+        if (data.data && Array.isArray(data.data.timeSlots)) {
+          setExistingSlots(data.data.timeSlots);
+        } else {
+          setExistingSlots(selectedSlots.map(s => ({ slot: s, status: 'available' })));
+        }
       } else {
         toast.error(data.message || "Failed to save availability");
       }
@@ -197,9 +236,9 @@ export default function TechnicianAvailability() {
   };
 
   const selectAllToggle = () => {
-    // Always select all slots (remove deselect behavior)
-    setSelectedSlots(allSlots);
-    toast.info("Selected all slots");
+    // Select only editable slots (skip booked and within-2-hour slots)
+    setSelectedSlots(editableSlots);
+    toast.info("Selected all editable slots");
   };
 
   return (
@@ -340,6 +379,10 @@ export default function TechnicianAvailability() {
                   <div className="w-3 h-3 bg-yellow-400 rounded-full shadow-sm" />
                   <span className="text-gray-700">Existing</span>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 bg-red-500 rounded-full shadow-sm" />
+                  <span className="text-gray-700">Booked</span>
+                </div>
                 {/* <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 bg-gray-300 rounded-full shadow-sm" />
                   <span className="text-gray-700">Available</span>
@@ -369,16 +412,34 @@ export default function TechnicianAvailability() {
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
                 {allSlots.map((slot) => {
                   const isSelected = selectedSlots.includes(slot);
-                  const isExisting = existingSlots.includes(slot);
-                  
-                  let className = "text-sm rounded-xl px-4 py-3 border-2 flex items-center justify-center select-none transition-all duration-300 hover:scale-105 font-medium ";
-                  
-                  if (isSelected) {
+                  const existing = existingSlots.find((s) => s.slot === slot);
+                  const status = existing?.status || null;
+
+                  const slotStart = slotStartDate(date, slot);
+                  const isPast = slotStart.getTime() < now.getTime();
+                  const isWithin2Hours = slotStart.getTime() < twoHoursFromNow;
+                  const isBooked = status === 'booked';
+                  const isDisabled = isBooked || isPast || isWithin2Hours || loading;
+
+                  // Base styles
+                  let className = "text-sm rounded-xl px-4 py-3 border-2 flex items-center justify-center select-none transition-all duration-300 font-medium ";
+
+                  // Visual states
+                  if (isBooked) {
+                    className += "bg-red-100 text-red-800 border-red-300 shadow-sm";
+                  } else if (isSelected) {
                     className += "bg-gradient-to-r from-green-500 to-emerald-600 text-white border-green-500 shadow-lg transform scale-105";
-                  } else if (isExisting) {
+                  } else if (existing) {
                     className += "bg-yellow-100 text-yellow-800 border-yellow-300 shadow-md";
                   } else {
-                    className += "bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 shadow-sm";
+                    className += "bg-white text-gray-700 border-gray-300 shadow-sm";
+                  }
+
+                  // Interaction states: if disabled, make it non-interactive and show not-allowed cursor
+                  if (isDisabled) {
+                    className += " opacity-70 cursor-not-allowed";
+                  } else {
+                    className += " hover:scale-105 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700";
                   }
 
                   return (
@@ -387,10 +448,14 @@ export default function TechnicianAvailability() {
                       type="button" 
                       onClick={() => toggleSlot(slot)} 
                       className={className}
-                      disabled={loading}
+                      disabled={isDisabled}
+                      title={isBooked ? 'Slot is booked and locked' : isPast ? 'Past slots cannot be modified' : isWithin2Hours ? 'Slots starting within 2 hours cannot be modified' : ''}
                     >
-                      <span className="text-center leading-tight">
-                        {slot.split('-').join('\n')}
+                      <span className="text-center leading-tight flex items-center justify-center">
+                        <span className="leading-tight">{slot.split('-').join('\n')}</span>
+                        {isBooked && (
+                          <Lock className="ml-2 h-4 w-4 text-red-600" />
+                        )}
                       </span>
                     </button>
                   );
@@ -403,7 +468,7 @@ export default function TechnicianAvailability() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 pt-6 border-t border-gray-200/50">
             <button
               onClick={selectAllToggle}
-              disabled={loading || saving || allSlots.length === 0 || selectedSlots.length === allSlots.length}
+              disabled={loading || saving || editableSlots.length === 0}
               type="button"
               className="w-full sm:w-auto px-6 py-3 rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 hover:scale-105 flex items-center space-x-2 shadow-sm"
             >

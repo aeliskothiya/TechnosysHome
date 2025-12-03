@@ -29,10 +29,10 @@ const TechnicianSidebar = () => {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [coinBalance, setCoinBalance] = useState(null);
 
+  // Fetch wallet only once on mount
   useEffect(() => {
-    if (!userData) return;
+    if (!userData?.id) return;
 
-    // --- Helper: Fetch wallet ---
     const fetchWallet = async () => {
       try {
         const res = await axios.get(`${backendUrl}/api/user/wallet`, {
@@ -47,15 +47,18 @@ const TechnicianSidebar = () => {
       }
     };
 
-    // Fetch wallet initially
     fetchWallet();
+  }, [userData?.id, backendUrl]); // Only run when user logs in
 
-    // Stop here if realtimeSubscribe not available (prevents crash)
-    if (!realtimeSubscribe) return;
+  // Subscribe to realtime wallet changes
+  useEffect(() => {
+    if (!userData?.id || !realtimeSubscribe) return;
 
-    // --- Subscribe to realtime updates ---
+    // console.log('Setting up wallet realtime subscription for user:', userData.id);
+
     const unsubscribe = realtimeSubscribe("TechnicianWallet", (payload) => {
       try {
+        // console.log('Received TechnicianWallet event:', payload);
         const doc = payload?.doc;
         if (!doc) return;
 
@@ -64,21 +67,30 @@ const TechnicianSidebar = () => {
 
         if (docTechId !== currentId) return;
 
-        // If balance included, update directly
+        // Update balance from realtime event
         if (doc?.BalanceCoins !== undefined) {
           setCoinBalance(Number(doc.BalanceCoins));
-        } else {
-          // Else re-fetch wallet
-          fetchWallet();
         }
       } catch (e) {
         console.error("Realtime wallet handler error", e);
       }
     });
 
-    // Cleanup on unmount
     return () => unsubscribe && unsubscribe();
-  }, [backendUrl, userData, realtimeSubscribe]);
+  }, [userData?.id, realtimeSubscribe]);
+
+  // Listen for custom wallet update events (fallback when realtime doesn't work)
+  useEffect(() => {
+    const handleWalletUpdate = (event) => {
+      // console.log('📢 Custom walletUpdated event received:', event.detail);
+      if (event.detail?.balance !== undefined) {
+        setCoinBalance(Number(event.detail.balance));
+      }
+    };
+
+    window.addEventListener('walletUpdated', handleWalletUpdate);
+    return () => window.removeEventListener('walletUpdated', handleWalletUpdate);
+  }, [backendUrl]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -252,8 +264,8 @@ const TechnicianSidebar = () => {
                   </NavLink>
                 ))}
                 
-                {/* Mobile Coin Balance */}
-                <div className="px-4 py-3 border-t border-gray-200/50 mt-4">
+                {/* Mobile Coin Balance - show only on extra-small screens when the top navbar coin is hidden */}
+                <div className="px-4 py-3 border-t border-gray-200/50 mt-4 sm:hidden">
                   <div className="flex justify-center">
                     <CoinBadge coins={coinBalance ?? 0} />
                   </div>

@@ -38,8 +38,7 @@ const packageValidationRules = [
     .trim()
 ];
 
-// Public routes
-router.get("/", getAllSubscriptionPackages);
+router.get("/", userAuth, getAllSubscriptionPackages);
 
 // Technician purchase history (must come before ":id" route)
 router.get("/history", userAuth, (req, res, next) => {
@@ -52,7 +51,7 @@ router.get("/history", userAuth, (req, res, next) => {
   next();
 }, getSubscriptionHistory);
 
-router.get("/:id", getSubscriptionPackage);
+router.get("/:id", userAuth, getSubscriptionPackage);
 
 // Technician purchase route
 router.post("/:id/purchase", userAuth, (req, res, next) => {

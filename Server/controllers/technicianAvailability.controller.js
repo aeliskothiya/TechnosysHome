@@ -20,19 +20,59 @@ export const upsertAvailability = async (req, res) => {
     const tech = await Technician.findById(technicianId);
     if (!tech) return res.status(404).json({ success: false, message: "Technician not found" });
 
+    // Normalize requested slots
+    const requestedSlots = timeSlots.map((s) => String(s).trim());
+
+    // Protection checks: cannot modify slots starting within 2 hours or already booked
+    const twoHoursFromNow = Date.now() + 2 * 60 * 60 * 1000;
+
+    // Load existing availability doc if any
+    let doc = await TechnicianAvailability.findOne({ technicianId, date });
+
+    // Validate requested slots
+    for (const slot of requestedSlots) {
+      const startPart = String(slot).split('-')[0];
+      const slotStart = new Date(`${date}T${startPart}:00`);
+      if (isNaN(slotStart.getTime())) {
+        return res.status(400).json({ success: false, message: `Invalid slot format: ${slot}` });
+      }
+      if (slotStart.getTime() < twoHoursFromNow) {
+        return res.status(400).json({ success: false, message: `Cannot modify slot ${slot} because it starts within 2 hours` });
+      }
+      const existing = doc?.timeSlots?.find((ts) => ts.slot === slot);
+      if (existing && existing.status === 'booked') {
+        return res.status(400).json({ success: false, message: `Cannot modify slot ${slot} because it is already booked` });
+      }
+    }
+
+    // All validations passed. Merge requested slots into existing doc, preserving booked slots.
+    if (doc) {
+      // Preserve booked slots
+      const newTimeSlots = [];
+      for (const ts of doc.timeSlots || []) {
+        if (ts.status === 'booked') newTimeSlots.push({ slot: ts.slot, status: 'booked' });
+      }
+
+      // Add requested slots as available (avoid duplicates)
+      for (const slot of requestedSlots) {
+        if (!newTimeSlots.find((t) => t.slot === slot)) {
+          newTimeSlots.push({ slot, status: 'available' });
+        }
+      }
+
+      doc.timeSlots = newTimeSlots;
+      await doc.save();
+      return res.json({ success: true, data: doc });
+    }
+
+    // Create new document - ensure none start within 2 hours (already checked)
     const payload = {
       technicianId,
       date,
-      timeSlots: timeSlots.map((s) => ({ slot: s, status: "available" })),
+      timeSlots: requestedSlots.map((s) => ({ slot: s, status: 'available' })),
     };
-
-    const doc = await TechnicianAvailability.findOneAndUpdate(
-      { technicianId, date },
-      { $set: payload },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    );
-
-    return res.json({ success: true, data: doc });
+    const created = await TechnicianAvailability.create(payload);
+    return res.json({ success: true, data: created });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ success: false, message: error.message });

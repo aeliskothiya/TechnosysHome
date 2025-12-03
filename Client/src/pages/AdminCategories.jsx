@@ -1274,7 +1274,7 @@ export const AdminCategories = () => {
                                 </div>
                                 <div className="flex items-center space-x-2 text-purple-600 font-medium">
                                   <div className="flex items-center justify-center w-4 h-4 bg-yellow-300 rounded-full">
-                                    <span className="text-xs font-bold text-yellow-900">₵</span>
+                                    <span className="text-xs font-bold text-black">C</span>
                                   </div>
                                   <span className="text-sm">{subCategory.coinsRequired} coins</span>
                                 </div>
@@ -1347,7 +1347,7 @@ export const AdminCategories = () => {
         {/* Service Category Modal */}
         {isCategoryModalOpen && (
           <div
-            className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn"
             onClick={() => setIsCategoryModalOpen(false)}
           >
             <div
@@ -1542,7 +1542,7 @@ export const AdminCategories = () => {
         {/* Sub Category Modal */}
         {isSubCategoryModalOpen && (
           <div
-            className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn"
             onClick={() => setIsSubCategoryModalOpen(false)}
           >
             <div

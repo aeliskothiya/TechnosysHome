@@ -1,17 +1,22 @@
 import mongoose from "mongoose";
 
-const adminPayoutSchema = new mongoose.Schema({
-  BookingID: { type: mongoose.Schema.Types.ObjectId, ref: "Booking", required: false },
-  TechnicianID: { type: mongoose.Schema.Types.ObjectId, ref: "Technician", required: true },
-  Amount: { type: Number, required: true },
-  Method: { type: String, enum: ["Bank", "UPI"], required: true },
-  Status: {
-    type: String,
-    enum: ["Pending", "Success", "Failed"],
-    default: "Pending",
+const adminPayoutSchema = new mongoose.Schema(
+  {
+    BookingID: { type: mongoose.Schema.Types.ObjectId, ref: "Booking", required: true },
+    TechnicianID: { type: mongoose.Schema.Types.ObjectId, ref: "Technician", required: true },
+    Amount: { type: Number, required: true },
+    Method: {
+      type: String,
+      enum: ["BankTransfer", "UPI", "Wallet", "Cash", "Other"],
+      default: "BankTransfer",
+    },
+    Status: {
+      type: String,
+      enum: ["Pending", "Paid", "Failed"],
+      default: "Pending",
+    },
   },
-}, { timestamps: true });
+  { timestamps: true }
+);
 
-const AdminPayout = mongoose.model("AdminPayout", adminPayoutSchema);
-
-export default AdminPayout;
+export default mongoose.model("AdminPayout", adminPayoutSchema);

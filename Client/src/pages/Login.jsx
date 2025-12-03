@@ -645,7 +645,7 @@ export const Login = () => {
 
     if (state === "Sign Up") {
       if (hasErrors) {
-        toast.error("Please fix the validation errors before submitting.");
+        toast.error("Please fill the all and valid information before submitting.");
         return;
       }
 
@@ -811,7 +811,7 @@ export const Login = () => {
         <div className="hidden md:flex md:w-2/5 bg-gradient-to-br from-indigo-600 via-purple-600 to-purple-700 p-3 flex-col justify-center items-center text-white relative overflow-hidden">
           {/* Background Pattern */}
           <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-0 left-0 w-full h-full bg-linear-to-br from-white to-transparent"></div>
+            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-white to-transparent"></div>
           </div>
           
           <div className="relative z-10 text-center mb-8">
@@ -1109,6 +1109,7 @@ export const Login = () => {
                             setErrors((prev) => ({ ...prev, houseNumber: validateField("houseNumber", formData.addressObj?.houseNumber || "") }));
                           }}
                           name="houseNumber"
+                          required
                           className="w-full bg-transparent outline-none text-sm placeholder-gray-400"
                         />
                       </div>
@@ -1173,6 +1174,7 @@ export const Login = () => {
                             setErrors((prev) => ({ ...prev, pincode: validateField("pincode", formData.addressObj?.pincode || "") }));
                           }}
                           name="pincode"
+                          required
                           className="w-full bg-transparent outline-none text-sm placeholder-gray-400"
                         />
                       </div>

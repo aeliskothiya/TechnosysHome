@@ -27,6 +27,11 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// Sender display name helpers
+const SENDER_NAME = process.env.SENDER_NAME || "Technosys";
+const SENDER_EMAIL = process.env.SENDER_EMAIL || process.env.SMTP_USER || "no-reply@technosys.com";
+const REPLY_TO = process.env.REPLY_TO || SENDER_EMAIL;
+
 // Helper function to delete old file
 const deleteOldFile = async (filePath) => {
   if (!filePath) return;
@@ -47,10 +52,12 @@ const generateOTP = () => {
 };
 
 // Helper function to send email OTP
+// Returns an object: { success: boolean, previewUrl?: string, error?: string }
 const sendEmailOTPHelper = async (email, otp) => {
   try {
-    await transporter.sendMail({
-      from: process.env.SENDER_EMAIL,
+    const message = {
+      from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
+      replyTo: REPLY_TO,
       to: email,
       subject: "Verify Your Email - Technosys",
       html: `
@@ -62,11 +69,35 @@ const sendEmailOTPHelper = async (email, otp) => {
           <p>Do not share this OTP with anyone.</p>
         </div>
       `,
-    });
-    return true;
+    };
+
+    // If SMTP credentials are present, use configured transporter
+    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+      const info = await transporter.sendMail(message);
+      return { success: true };
+    }
+
+    // In development, create a Nodemailer test account (Ethereal) for previews
+    if (process.env.NODE_ENV === "development") {
+      const testAccount = await nodemailer.createTestAccount();
+      const testTransport = nodemailer.createTransport({
+        host: testAccount.smtp.host,
+        port: testAccount.smtp.port,
+        secure: testAccount.smtp.secure,
+        auth: {
+          user: testAccount.user,
+          pass: testAccount.pass,
+        },
+      });
+      const info = await testTransport.sendMail(message);
+      const previewUrl = nodemailer.getTestMessageUrl(info);
+      return { success: true, previewUrl };
+    }
+
+    return { success: false, error: "SMTP not configured" };
   } catch (error) {
     console.error("Email OTP send error:", error);
-    return false;
+    return { success: false, error: error.message || String(error) };
   }
 };
 
@@ -228,28 +259,37 @@ export const sendEmailOTP = async (req, res) => {
 
     console.log(`OTP for ${newEmail}: ${otp}`);
 
-    // Only send email in production mode
-    let emailResult = false;
-    if (process.env.NODE_ENV === "production") {
-      emailResult = await sendEmailOTPHelper(newEmail, otp);
-      if (!emailResult) {
-        console.warn(`Email delivery failed for ${newEmail}`);
+    // Only send email in production mode or allow Ethereal preview in development
+    const allowSendInDev = process.env.SEND_EMAIL_IN_DEV === "true";
+    let sendResult = { success: false };
+    if (process.env.NODE_ENV === "production" || allowSendInDev || (process.env.SMTP_USER && process.env.SMTP_PASS)) {
+      sendResult = await sendEmailOTPHelper(newEmail, otp);
+      if (!sendResult.success) {
+        console.warn(`Email delivery failed for ${newEmail}: ${sendResult.error || "unknown"}`);
       }
-    } else {
-      console.log("[DEV MODE] Email sending disabled. OTP stored in database for testing.");
+    } else if (process.env.NODE_ENV === "development") {
+      // In dev without SMTP, use Ethereal fallback to get preview URL
+      sendResult = await sendEmailOTPHelper(newEmail, otp);
+      if (!sendResult.success) {
+        console.log("[DEV MODE] Email sending disabled. OTP stored in database for testing.");
+      }
     }
 
     // Prepare response
     const response = {
       success: true,
-      message: process.env.NODE_ENV === "production" 
-        ? (emailResult ? "OTP sent to your email" : "OTP sent failed, please try again")
-        : "OTP generated for testing (Email not sent in dev mode)",
+      message:
+        process.env.NODE_ENV === "production"
+          ? sendResult.success
+            ? "OTP sent to your email"
+            : "OTP send failed, please try again"
+          : "OTP generated for testing",
     };
 
-    // Return OTP only in development mode for testing
+    // In development include OTP for convenience and preview URL when available
     if (process.env.NODE_ENV === "development") {
       response.otp = otp;
+      if (sendResult && sendResult.previewUrl) response.previewUrl = sendResult.previewUrl;
     }
 
     return res.json(response);

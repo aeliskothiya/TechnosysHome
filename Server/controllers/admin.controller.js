@@ -23,6 +23,11 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// Sender display name helpers
+const SENDER_NAME = process.env.SENDER_NAME || "Technosys";
+const SENDER_EMAIL = process.env.SENDER_EMAIL || process.env.SMTP_USER || "no-reply@technosys.com";
+const REPLY_TO = process.env.REPLY_TO || SENDER_EMAIL;
+
 // Get all technicians with filter
 export const getTechnicians = async (req, res) => {
   try {
@@ -198,7 +203,8 @@ export const approveTechnician = async (req, res) => {
       
 
       await transporter.sendMail({
-        from: process.env.SENDER_EMAIL,
+        from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
+        replyTo: REPLY_TO,
         to: technician.Email,
         subject: "Your Technician Account Has Been Approved - Technosys",
         html: `
@@ -221,7 +227,7 @@ export const approveTechnician = async (req, res) => {
             
             <div style="text-align: center; margin: 25px 0;">
               <a href="${
-                process.env.FRONTEND_URL 
+                process.env.FRONTEND_URL || "http://localhost:5175"
               }/login" 
                  style="background-color: #4F46E5; color: white; padding: 12px 30px; 
                         text-decoration: none; border-radius: 6px; display: inline-block;">
@@ -324,7 +330,8 @@ export const rejectTechnician = async (req, res) => {
     // Send rejection email
     try {
       await transporter.sendMail({
-        from: process.env.SENDER_EMAIL,
+        from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
+        replyTo: REPLY_TO,
         to: technician.Email,
         subject: "Update on Your Technician Account Application - Technosys",
         html: `

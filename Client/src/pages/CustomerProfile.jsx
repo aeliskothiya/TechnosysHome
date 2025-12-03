@@ -465,7 +465,7 @@ const CustomerProfile = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8 text-center">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
@@ -662,7 +662,7 @@ const CustomerProfile = () => {
                         onChange={(e) =>
                           handleProfileChange("Address", { ...(profile.Address || {}), street: e.target.value })
                         }
-                        className="w-full px-4 py-3 border-2 rounded-xl"
+                        className="w-full px-4 py-3 border-2 rounded-xl border-gray-200"
                         placeholder="Street (optional)"
                       />
                     </div>
@@ -674,7 +674,7 @@ const CustomerProfile = () => {
                         onChange={(e) =>
                           handleProfileChange("Address", { ...(profile.Address || {}), city: e.target.value })
                         }
-                        className="w-full px-4 py-3 border-2 rounded-xl"
+                        className="w-full px-4 py-3 border-2 rounded-xl border-gray-200"
                         placeholder="City (optional)"
                       />
                     </div>
@@ -761,9 +761,9 @@ const CustomerProfile = () => {
         />
       )}
 
-      {/* Line 601 omitted */}
+      {/* Email Verification Modal */}
       {showEmailVerification && (
-        <div className="fixed inset-0 bg-gradient-to-br from-blue-200 to-purple-400 flex items-center justify-center p-4 z-50" onClick={(e) => {
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={(e) => {
           if (e.target === e.currentTarget) {
             setShowEmailVerification(false);
             setEmailOTPSent(false);
@@ -773,7 +773,7 @@ const CustomerProfile = () => {
             setCanResendOTP(false);
           }
         }}>
-          <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl shadow-2xl max-w-md w-full p-8 transform transition-all duration-300 scale-100">
+          <div className="bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 rounded-2xl shadow-2xl border border-slate-700/50 max-w-md w-full p-8 transform transition-all duration-300 scale-100">
             {/* Header with Lock Icon */}
             {!emailOTPSent ? (
               <>

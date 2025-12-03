@@ -14,7 +14,24 @@ export function initRealtime(httpServer) {
   });
 
   io.on('connection', (socket) => {
-    console.log('Realtime: socket connected', socket.id);
+    // Allow technician/client to join a room equal to their Mongo _id for targeted emits
+    socket.on('register-technician', (technicianId) => {
+      if (!technicianId) return;
+      try {
+        socket.join(String(technicianId));
+      } catch (e) {
+        // Silent fail
+      }
+    });
+
+    socket.on('register-customer', (customerId) => {
+      if (!customerId) return;
+      try {
+        socket.join(String(customerId));
+      } catch (e) {
+        // Silent fail
+      }
+    });
   });
 
   // Attach hooks to any already-registered models

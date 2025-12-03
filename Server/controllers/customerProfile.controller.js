@@ -14,6 +14,11 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// Sender display name helpers
+const SENDER_NAME = process.env.SENDER_NAME || "Technosys";
+const SENDER_EMAIL = process.env.SENDER_EMAIL || process.env.SMTP_USER || "no-reply@technosys.com";
+const REPLY_TO = process.env.REPLY_TO || SENDER_EMAIL;
+
 // Helper to generate OTP
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -21,7 +26,8 @@ const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString()
 const sendEmailOTPHelper = async (email, otp) => {
   try {
     const message = {
-      from: process.env.SENDER_EMAIL || "no-reply@technosys.local",
+      from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
+      replyTo: REPLY_TO,
       to: email,
       subject: "Verify Your Email - Technosys",
       html: `
