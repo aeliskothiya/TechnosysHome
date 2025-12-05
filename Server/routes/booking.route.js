@@ -2,7 +2,6 @@ import express from "express";
 import {
   createBooking,
   precheckAvailability,
-  simulatePayment,
   broadcastBooking,
   acceptBooking,
   autoCancelIfNoAcceptance,
@@ -18,13 +17,15 @@ import {
   verifyCompletionOTP,
   completeService,
 } from "../controllers/booking.controller.js";
+import bookingPaymentRouter from "./bookingPayment.route.js";
 import userAuth from "../middleware/userAuth.js";
 
 const router = express.Router();
 
 router.post("/create", userAuth, createBooking);
 router.post("/precheck", userAuth, precheckAvailability);
-router.post("/simulate-payment", userAuth, simulatePayment);
+// Payment routes handled by sub-router
+router.use("/payment", bookingPaymentRouter);
 router.post("/broadcast", userAuth, broadcastBooking);
 router.post("/accept", userAuth, acceptBooking);
 router.post("/auto-cancel", userAuth, autoCancelIfNoAcceptance);

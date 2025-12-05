@@ -115,11 +115,10 @@ export default function TechnicianAvailability() {
   };
   
   const handleTodayClick = () => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    setCalendarMonth(tomorrow);
-    const tomorrowStr = formatLocalDate(tomorrow);
-    setDate(tomorrowStr);
+    const today = new Date();
+    setCalendarMonth(today);
+    const todayStr = formatLocalDate(today);
+    setDate(todayStr);
   };
 
   const generateSlots = () => {
@@ -174,15 +173,23 @@ export default function TechnicianAvailability() {
   }, [date, backendUrl]);
 
   const toggleSlot = (slot) => {
-    // Determine if slot is protected: booked or starts within 2 hours
+    // Determine if slot is protected
     const existing = existingSlots.find((s) => s.slot === slot);
     const slotStart = slotStartDate(date, slot);
     const isPast = slotStart.getTime() < now.getTime();
-    const isWithin2Hours = slotStart.getTime() < twoHoursFromNow;
     const isBooked = existing?.status === 'booked';
 
-    // Disallow toggling if the slot is booked, already past, or within the 2-hour lock window
-    if (isBooked || isPast || isWithin2Hours) return;
+    // Cannot toggle booked slots or past slots
+    if (isBooked || isPast) return;
+
+    // Check if this is an existing slot (already in existingSlots)
+    const isExistingSlot = existingSlots.some(s => s.slot === slot);
+    
+    // For NEW slots only, check 2-hour rule
+    if (!isExistingSlot) {
+      const isWithin2Hours = slotStart.getTime() < twoHoursFromNow;
+      if (isWithin2Hours) return;
+    }
 
     if (selectedSlots.includes(slot)) {
       setSelectedSlots(selectedSlots.filter((s) => s !== slot));
@@ -191,14 +198,23 @@ export default function TechnicianAvailability() {
     }
   };
 
-  // compute editable slots for the current date: not booked and not starting within 2 hours
+  // compute editable slots: not booked, not past, and either existing OR not within 2 hours
   const editableSlots = allSlots.filter((slot) => {
     const existing = existingSlots.find((s) => s.slot === slot);
     const status = existing?.status || null;
     const slotStart = slotStartDate(date, slot);
     const isPast = slotStart.getTime() < now.getTime();
+    const isExistingSlot = existingSlots.some(s => s.slot === slot);
+    
+    // Cannot edit booked or past slots
+    if (status === 'booked' || isPast) return false;
+    
+    // Existing slots are always editable
+    if (isExistingSlot) return true;
+    
+    // New slots must not be within 2 hours
     const isWithin2Hours = slotStart.getTime() < twoHoursFromNow;
-    return status !== 'booked' && !isPast && !isWithin2Hours;
+    return !isWithin2Hours;
   });
 
   const handleSubmit = async () => {
@@ -209,7 +225,12 @@ export default function TechnicianAvailability() {
     }
     try {
       setSaving(true);
-      const payload = { date, timeSlots: selectedSlots };
+      
+      // Always include booked slots in submission (they cannot be removed)
+      const bookedSlots = existingSlots.filter(s => s.status === 'booked').map(s => s.slot);
+      const allSlots = [...new Set([...selectedSlots, ...bookedSlots])]; // Merge and deduplicate
+      
+      const payload = { date, timeSlots: allSlots };
       const { data } = await axios.post(`${backendUrl}/api/technician-availability`, payload, { withCredentials: true });
       if (data && data.success) {
         toast.success("Availability saved successfully!");
@@ -417,8 +438,11 @@ export default function TechnicianAvailability() {
 
                   const slotStart = slotStartDate(date, slot);
                   const isPast = slotStart.getTime() < now.getTime();
-                  const isWithin2Hours = slotStart.getTime() < twoHoursFromNow;
                   const isBooked = status === 'booked';
+                  const isExistingSlot = existingSlots.some(s => s.slot === slot);
+                  
+                  // Only check 2-hour rule for NEW slots
+                  const isWithin2Hours = !isExistingSlot && slotStart.getTime() < twoHoursFromNow;
                   const isDisabled = isBooked || isPast || isWithin2Hours || loading;
 
                   // Base styles
@@ -435,11 +459,11 @@ export default function TechnicianAvailability() {
                     className += "bg-white text-gray-700 border-gray-300 shadow-sm";
                   }
 
-                  // Interaction states: if disabled, make it non-interactive and show not-allowed cursor
+                  // Interaction states
                   if (isDisabled) {
                     className += " opacity-70 cursor-not-allowed";
                   } else {
-                    className += " hover:scale-105 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700";
+                    className += " hover:scale-105 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 cursor-pointer";
                   }
 
                   return (
@@ -449,7 +473,13 @@ export default function TechnicianAvailability() {
                       onClick={() => toggleSlot(slot)} 
                       className={className}
                       disabled={isDisabled}
-                      title={isBooked ? 'Slot is booked and locked' : isPast ? 'Past slots cannot be modified' : isWithin2Hours ? 'Slots starting within 2 hours cannot be modified' : ''}
+                      title={
+                        isBooked ? 'Slot is booked and locked' : 
+                        isPast ? 'Past slots cannot be modified' : 
+                        isWithin2Hours ? 'New slots starting within 2 hours cannot be added' : 
+                        isExistingSlot ? 'Click to deselect this available slot' : 
+                        'Click to select this slot'
+                      }
                     >
                       <span className="text-center leading-tight flex items-center justify-center">
                         <span className="leading-tight">{slot.split('-').join('\n')}</span>

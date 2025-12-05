@@ -159,7 +159,7 @@ authRouter.get(
 authRouter.get(
   "/google/callback",
   passport.authenticate("google", {
-    failureRedirect: `${process.env.FRONTEND_URL}/login`,
+    failureRedirect: "http://localhost:5173/login",
     session: true,
   }),
   async (req, res) => {
@@ -178,7 +178,7 @@ authRouter.get(
     });
 
     // Send user back to your app (your routes are: /, /login, /email-verify, /reset-password)
-    res.redirect(process.env.FRONTEND_URL);
+    res.redirect("http://localhost:5173/");
   }
 );
 

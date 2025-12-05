@@ -54,3 +54,35 @@ export async function verifyRazorpayAndFinalize({ paymentModel, paymentId, razor
 
   return { success: true, paymentRecord };
 }
+
+/**
+ * Capture a previously authorized payment (one-step payment_capture: 0)
+ * This actually charges the customer's card
+ */
+export async function captureRazorpayPayment(razorpay_payment_id, amount) {
+  try {
+    const captureResponse = await razorpayInstance.payments.capture(razorpay_payment_id, amount);
+    return { success: true, data: captureResponse };
+  } catch (err) {
+    console.error('Failed to capture Razorpay payment:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Refund a payment (full or partial)
+ * Can be used after capture or on authorized payments
+ */
+export async function refundRazorpayPayment(razorpay_payment_id, amount = null) {
+  try {
+    const refundOptions = {};
+    if (amount) {
+      refundOptions.amount = amount; // Partial refund (in paise)
+    }
+    const refundResponse = await razorpayInstance.payments.refund(razorpay_payment_id, refundOptions);
+    return { success: true, data: refundResponse };
+  } catch (err) {
+    console.error('Failed to refund Razorpay payment:', err);
+    return { success: false, error: err.message };
+  }
+}

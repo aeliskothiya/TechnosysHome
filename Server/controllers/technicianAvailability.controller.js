@@ -23,25 +23,41 @@ export const upsertAvailability = async (req, res) => {
     // Normalize requested slots
     const requestedSlots = timeSlots.map((s) => String(s).trim());
 
-    // Protection checks: cannot modify slots starting within 2 hours or already booked
-    const twoHoursFromNow = Date.now() + 2 * 60 * 60 * 1000;
-
     // Load existing availability doc if any
     let doc = await TechnicianAvailability.findOne({ technicianId, date });
 
-    // Validate requested slots
+    // Get existing slots to differentiate between new and existing
+    const existingSlotStrings = (doc?.timeSlots || []).map(ts => ts.slot);
+    const bookedSlots = (doc?.timeSlots || []).filter(ts => ts.status === 'booked').map(ts => ts.slot);
+    
+    // Protection 1: Cannot remove booked slots
+    for (const bookedSlot of bookedSlots) {
+      if (!requestedSlots.includes(bookedSlot)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Cannot remove slot ${bookedSlot} because it is already booked` 
+        });
+      }
+    }
+
+    // Protection 2: New slots (not previously available) cannot start within 2 hours
+    const twoHoursFromNow = Date.now() + 2 * 60 * 60 * 1000;
+    
     for (const slot of requestedSlots) {
       const startPart = String(slot).split('-')[0];
       const slotStart = new Date(`${date}T${startPart}:00`);
+      
       if (isNaN(slotStart.getTime())) {
         return res.status(400).json({ success: false, message: `Invalid slot format: ${slot}` });
       }
-      if (slotStart.getTime() < twoHoursFromNow) {
-        return res.status(400).json({ success: false, message: `Cannot modify slot ${slot} because it starts within 2 hours` });
-      }
-      const existing = doc?.timeSlots?.find((ts) => ts.slot === slot);
-      if (existing && existing.status === 'booked') {
-        return res.status(400).json({ success: false, message: `Cannot modify slot ${slot} because it is already booked` });
+      
+      // Only check 2-hour rule for NEW slots (not already in existing available slots)
+      const isExistingSlot = existingSlotStrings.includes(slot);
+      if (!isExistingSlot && slotStart.getTime() < twoHoursFromNow) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Cannot add new slot ${slot} because it starts within 2 hours` 
+        });
       }
     }
 

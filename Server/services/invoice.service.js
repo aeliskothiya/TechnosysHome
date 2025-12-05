@@ -10,6 +10,11 @@ import transporter from '../config/nodemailer.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Sender display name helpers
+const SENDER_NAME = process.env.SENDER_NAME || "Technosys";
+const SENDER_EMAIL = process.env.SENDER_EMAIL || process.env.SMTP_USER || "no-reply@technosys.com";
+const REPLY_TO = process.env.REPLY_TO || SENDER_EMAIL;
+
 export async function generateInvoice({ refType = 'SubscriptionPayment', refId, paymentRecord, subscriptionPackage = {}, recipient = {}, historyId = null }) {
   try {
     const invoiceDir = path.join(process.cwd(), 'uploads', 'invoices');
@@ -313,10 +318,11 @@ export async function generateInvoice({ refType = 'SubscriptionPayment', refId, 
       console.warn('Invoice service: realtime emit failed', emitErr?.message || emitErr);
     }
 
-    // Send email with attachment if recipient email present
-    if (recipient?.Email) {
+    // Send email with attachment if recipient email present AND refType is SubscriptionPayment
+    // For CustomerPayment, the booking controller handles email sending with custom content
+    if (recipient?.Email && refType === 'SubscriptionPayment') {
       const mailOptions = {
-        from: process.env.SENDER_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER,
+        from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
         to: recipient.Email,
         subject: 'Your Technosys Invoice',
         html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">` +

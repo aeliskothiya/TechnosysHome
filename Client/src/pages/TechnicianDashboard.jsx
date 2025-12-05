@@ -511,9 +511,7 @@ const TechnicianDashboard = () => {
                       <p className="font-semibold text-lg">
                         {req.service?.name}
                       </p>
-                      <p className="text-sm text-gray-600">
-                        Booking #{req.bookingId.slice(-6)}
-                      </p>
+                     
                       <p className="text-sm text-gray-600">
                         Date: {new Date(req.date).toLocaleDateString()} | Time: {req.timeSlot}
                       </p>
@@ -547,11 +545,6 @@ const TechnicianDashboard = () => {
                         </p>
                       )}
 
-                      {req.customer.Mobile && (
-                        <p className="text-sm text-gray-600">
-                          Phone: {req.customer.Mobile}
-                        </p>
-                      )}
                     </div>
                   )}
 
