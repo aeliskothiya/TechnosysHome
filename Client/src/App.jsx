@@ -140,7 +140,7 @@ const AuthRedirectHandler = () => {
           console.log("Redirecting to admin");
 
           navigate("/admin/dashboard");
-        } 
+        }
         if (userData?.role === "technician") {
           console.log("Redirecting to technicain");
 
@@ -149,7 +149,7 @@ const AuthRedirectHandler = () => {
         if (userData?.role === "customer") {
           console.log("Redirecting to customer");
           navigate("/customer");
-        } 
+        }
         // if (!userData?.role) {
         //   console.log("Redirecting to Home");
 
@@ -193,7 +193,7 @@ const App = () => {
       <Routes>
         {/* 🌐 Public and Auth routes */}
         <Route path="/" element={<Home />} />
-         {/* <Route path="/temp" element={<TempPage />} /> */}
+        {/* <Route path="/temp" element={<TempPage />} /> */}
         <Route path="/login" element={<Login />} />
         <Route path="/login-customer" element={<LoginCustomer />} />
         <Route path="/email-verify" element={<EmailVerify />} />
