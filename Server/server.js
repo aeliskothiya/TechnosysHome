@@ -31,12 +31,13 @@ import bookingRoutes from "./routes/booking.route.js";
 import feedbackRouter from "./routes/feedback.route.js";
 import complaintRouter from "./routes/complaint.route.js";
 import analyticsRoutes from "./routes/analytics.route.js";
+import technicianAnalyticsRoutes from "./routes/technicianAnalytics.route.js";
 import thresholdsRouter from "./routes/thresholds.route.js";
+import chatRoutes from "./routes/chat.route.js";
 import { startAutoCancelScheduler } from "./controllers/booking.controller.js";
-import { initializeReactivationScheduler } from "./controllers/complaint.controller.js";
 
 const app = express();
-const port = process.env.PORT || 6000;
+const port = process.env.PORT || 6001;
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -44,7 +45,7 @@ const __dirname = path.dirname(__filename);
 
 connectdb();
 
-const allowedOrigins = ['http://localhost:5173', 'http://localhost:5173'];
+const allowedOrigins = ['http://localhost:5173', 'http://localhost:5174'];
 
 // Sanitize data for mongoose injection
 // app.use(mongoSanitize());
@@ -117,7 +118,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
     // Set CORS headers for static files
     res.setHeader('Access-Control-Allow-Origin', allowedOrigins);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
-
+    
     // Cache control for better performance
     if (path.endsWith('.jpg') || path.endsWith('.png') || path.endsWith('.jpeg') || path.endsWith('.webp')) {
       res.setHeader('Cache-Control', 'public, max-age=86400'); // 1 day cache for images
@@ -156,7 +157,9 @@ app.use('/api/bookings', bookingRoutes);
 app.use('/api/feedback', feedbackRouter);
 app.use('/api/complaints', complaintRouter);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/technician-analytics', technicianAnalyticsRoutes);
 app.use('/api/thresholds', thresholdsRouter);
+app.use('/api/chat', chatRoutes);
 const server = app.listen(port, () => console.log(`Server started on PORT:${port}`));
 
 // Initialize realtime (Socket.IO)
@@ -179,11 +182,4 @@ try {
   startAutoCancelScheduler();
 } catch (err) {
   console.error('Failed to start auto-cancel scheduler', err);
-}
-
-// Initialize reactivation scheduler for temporary deactivations
-try {
-  initializeReactivationScheduler();
-} catch (err) {
-  console.error('Failed to initialize reactivation scheduler', err);
 }

@@ -32,6 +32,72 @@ export function initRealtime(httpServer) {
         // Silent fail
       }
     });
+
+    // Chat-specific socket events
+    socket.on('join-chat', (data) => {
+      const { chatId, userId } = data;
+      if (!chatId || !userId) return;
+      
+      try {
+        const chatRoom = `chat-${chatId}`;
+        socket.join(chatRoom);
+        
+        // Notify user they joined successfully
+        socket.emit('chat-joined', { chatId, userId });
+      } catch (e) {
+        console.error('join-chat error:', e);
+      }
+    });
+
+    socket.on('leave-chat', (data) => {
+      const { chatId } = data;
+      if (!chatId) return;
+      
+      try {
+        const chatRoom = `chat-${chatId}`;
+        socket.leave(chatRoom);
+      } catch (e) {
+        console.error('leave-chat error:', e);
+      }
+    });
+
+    socket.on('send-message', async (data) => {
+      const { chatId, message } = data;
+      if (!chatId || !message) return;
+
+      try {
+        const chatRoom = `chat-${chatId}`;
+        
+        // Broadcast to all users in this chat room (including sender)
+        io.to(chatRoom).emit('new-message', {
+          chatId,
+          message,
+        });
+      } catch (e) {
+        console.error('send-message error:', e);
+      }
+    });
+
+    socket.on('message-read', (data) => {
+      const { chatId, messageIds, userId, userType } = data;
+      if (!chatId || !messageIds) return;
+
+      try {
+        const chatRoom = `chat-${chatId}`;
+        socket.to(chatRoom).emit('messages-read', {
+          chatId,
+          messageIds,
+          readBy: userType,
+          readAt: new Date(),
+        });
+      } catch (e) {
+        console.error('message-read error:', e);
+      }
+    });
+
+    socket.on('disconnect', () => {
+      // Cleanup handled automatically by socket.io
+    });
   });
 
   // Attach hooks to any already-registered models

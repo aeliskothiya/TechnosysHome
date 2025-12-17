@@ -19,7 +19,7 @@ import { processUploadedImage, deleteImageFile } from "../utils/imageUtils.js";
 const SENDER_NAME = process.env.SENDER_NAME || "Technosys";
 const SENDER_EMAIL = process.env.SENDER_EMAIL || process.env.SMTP_USER || "no-reply@technosys.local";
 const REPLY_TO = process.env.REPLY_TO || SENDER_EMAIL;
-const FRONTEND_URL = (process.env.FRONTEND_URL || process.env.CLIENT_URL || "http://localhost:5173").replace(/\/$/, "");
+const FRONTEND_URL = (process.env.FRONTEND_URL || process.env.CLIENT_URL || "http://localhost:5174").replace(/\/$/, "");
 
 //date = 12-10-25
 export const register = async (req, res) => {
@@ -355,7 +355,7 @@ export const login = async (req, res) => {
   // Find login block info
   const loginBlock = await LoginBlock.findOne({ Email: email });
   // If failed attempts >= 1, require reCAPTCHA
-  if (loginBlock && loginBlock.AttemptCount >= 1) {
+  if (loginBlock && loginBlock.AttemptCount >= 1 ) {
     if (!recaptchaToken) {
       return res.status(400).json({ success: false, message: "reCAPTCHA required" });
     }
@@ -384,7 +384,7 @@ export const login = async (req, res) => {
     // Brute-force protection: check block status
     const loginBlock = await LoginBlock.findOne({ Email: userEmail });
     if (loginBlock && loginBlock.BlockedUntil && loginBlock.BlockedUntil > new Date()) {
-      const waitMinutes = Math.ceil((loginBlock.BlockedUntil - new Date()) / 60000);
+      const waitMinutes = Math.ceil((loginBlock.BlockedUntil - new Date()) / 60010);
       return res.status(429).json({
         success: false,
         message: `Too many failed attempts. Try again in ${waitMinutes} minute(s).`,
@@ -572,12 +572,10 @@ export const googleLogin = async (req, res) => {
 // ================= IS AUTH =================
 export const isAuthenticated = async (req, res) => {
   try {
-    return res.json({
-      success: true, user: req.user, isLoggedIn: true,
+    return res.json({ success: true, user: req.user,isLoggedIn: true,
       message: "User is authenticated",
       userType: req.userType,
-      userEmail: req.userEmail
-    });
+      userEmail: req.userEmail });
   } catch (error) {
     res.json({ success: false, message: error.message });
   }
@@ -931,7 +929,7 @@ export const resetPassword = async (req, res) => {
 
 
 export const sendCustomerMobileOtp = async (req, res) => {
-  console.log("Customer OTP request body:", req.body);
+  console.log("Customer OTP request body:", req.body); 
   try {
     const { mobile } = req.body;
 
@@ -1122,7 +1120,7 @@ export const cleanupExpiredOtps = async () => {
       otpExpiry: { $lt: currentTime },
       isVerified: false,
     });
-
+    
     if (result.deletedCount > 0) {
       console.log(`🧹 Cleaned up ${result.deletedCount} expired OTP records at ${currentTime.toISOString()}`);
     }

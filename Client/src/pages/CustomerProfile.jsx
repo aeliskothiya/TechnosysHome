@@ -104,6 +104,10 @@ const CustomerProfile = () => {
               ? customer.location.coordinates[0]
               : undefined,
         });
+        
+        // If email is not set (null/empty), enable the field for user to add email
+        setEmailDisabled(customer.Email ? true : false);
+        
         // Clear any stale validation errors after loading profile
         setErrors({ Name: "", Mobile: "", Email: "", Address: "", HouseNumber: "", Pincode: "" });
       } else {

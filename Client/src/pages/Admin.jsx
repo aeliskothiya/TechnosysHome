@@ -41,13 +41,18 @@ export const Admin = () => {
   });
 
   const [weeklyRevenueData, setWeeklyRevenueData] = useState([]);
+  const [monthlyRevenueData, setMonthlyRevenueData] = useState([]);
+  const [revenueView, setRevenueView] = useState('weekly'); // 'weekly' or 'monthly'
   const [bookingStatusData, setBookingStatusData] = useState([]);
   const [revenueByServiceData, setRevenueByServiceData] = useState([]);
   const [peakHoursData, setPeakHoursData] = useState([]);
   const [topTechnicians, setTopTechnicians] = useState([]);
   const [topServices, setTopServices] = useState([]);
   const [topLocations, setTopLocations] = useState([]);
+  const [allCategories, setAllCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('');
   const [mostBookedServices, setMostBookedServices] = useState([]);
+  const [filteredMostBookedServices, setFilteredMostBookedServices] = useState([]);
   const [performanceMetrics, setPerformanceMetrics] = useState({
     completionRate: 0,
     avgResponseTime: 0,
@@ -65,7 +70,7 @@ export const Admin = () => {
   const [error, setError] = useState(null);
 
   // API base URL
-  const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
+  const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:6001';
 
   // Fetch all analytics data
   const fetchAnalytics = async () => {
@@ -86,6 +91,7 @@ export const Admin = () => {
       const [
         dashboardRes,
         weeklyRes,
+        monthlyRes,
         statusRes,
         revenueServiceRes,
         peakRes,
@@ -94,10 +100,12 @@ export const Admin = () => {
         topLocationsRes,
         metricsRes,
         financialRes,
-        mostBookedRes
+        mostBookedRes,
+        categoriesRes
       ] = await Promise.all([
         fetch(`${API_URL}/api/analytics/dashboard`, fetchOptions),
         fetch(`${API_URL}/api/analytics/weekly-revenue`, fetchOptions),
+        fetch(`${API_URL}/api/analytics/monthly-revenue`, fetchOptions),
         fetch(`${API_URL}/api/analytics/booking-status`, fetchOptions),
         fetch(`${API_URL}/api/analytics/revenue-by-service`, fetchOptions),
         fetch(`${API_URL}/api/analytics/peak-hours`, fetchOptions),
@@ -106,12 +114,14 @@ export const Admin = () => {
         fetch(`${API_URL}/api/analytics/top-locations`, fetchOptions),
         fetch(`${API_URL}/api/analytics/performance-metrics`, fetchOptions),
         fetch(`${API_URL}/api/analytics/financial-summary`, fetchOptions),
-        fetch(`${API_URL}/api/analytics/most-booked-services`, fetchOptions)
+        fetch(`${API_URL}/api/analytics/most-booked-services`, fetchOptions),
+        fetch(`${API_URL}/api/service-categories`, fetchOptions)
       ]);
 
       // Parse responses
       const dashboard = await dashboardRes.json();
       const weekly = await weeklyRes.json();
+      const monthly = await monthlyRes.json();
       const status = await statusRes.json();
       const revenueService = await revenueServiceRes.json();
       const peak = await peakRes.json();
@@ -121,6 +131,7 @@ export const Admin = () => {
       const metrics = await metricsRes.json();
       const financial = await financialRes.json();
       const mostBooked = await mostBookedRes.json();
+      const categories = await categoriesRes.json();
 
       // Check for authentication errors
       if (!dashboardRes.ok) {
@@ -136,6 +147,7 @@ export const Admin = () => {
       // Update state
       if (dashboard.success) setDashboardData(dashboard.data);
       if (weekly.success) setWeeklyRevenueData(weekly.data);
+      if (monthly.success) setMonthlyRevenueData(monthly.data);
       if (status.success) setBookingStatusData(status.data);
       if (revenueService.success) setRevenueByServiceData(revenueService.data);
       if (peak.success) setPeakHoursData(peak.data);
@@ -144,7 +156,13 @@ export const Admin = () => {
       if (topLocs.success) setTopLocations(topLocs.data);
       if (metrics.success) setPerformanceMetrics(metrics.data);
       if (financial.success) setFinancialSummary(financial.data);
-      if (mostBooked.success) setMostBookedServices(mostBooked.data);
+      if (mostBooked.success) {
+        setMostBookedServices(mostBooked.data);
+        setFilteredMostBookedServices(mostBooked.data);
+      }
+      if (categories.success) {
+        setAllCategories(categories.data);
+      }
 
     } catch (err) {
       console.error('Error fetching analytics:', err);
@@ -160,6 +178,15 @@ export const Admin = () => {
 
   // Generate colors for pie chart
   const COLORS = ['#8B5CF6', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#8B5CF6'];
+
+  // Helper: Smart currency formatter (shows actual number if small, K/M/B if large)
+  const formatCurrency = (amount) => {
+    if (amount === 0) return '₹0';
+    if (amount < 1000) return `₹${Math.round(amount).toLocaleString()}`;
+    if (amount < 1000000) return `₹${(amount / 1000).toFixed(1)}K`;
+    if (amount < 1000000000) return `₹${(amount / 1000000).toFixed(1)}M`;
+    return `₹${(amount / 1000000000).toFixed(1)}B`;
+  };
 
   // Helper: lighten/darken hex color for gradient shading
   const lightenDarkenColor = (hex, amt) => {
@@ -223,7 +250,7 @@ export const Admin = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+      <div className="bg-white border-b border-gray-200 sticky top-16 z-10 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
@@ -294,7 +321,7 @@ export const Admin = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <KPICard
             title="Subscription Revenue"
-            value={`₹${(dashboardData.kpis.totalRevenue / 1000).toFixed(0)}K`}
+            value={formatCurrency(dashboardData.kpis.totalRevenue)}
             growth={dashboardData.kpis.revenueGrowth}
             icon={DollarSign}
             color="bg-green-500"
@@ -332,7 +359,7 @@ export const Admin = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div className="text-center">
               <p className="text-white/80 text-sm mb-1">Revenue Today</p>
-              <p className="text-3xl font-bold">₹{dashboardData.todayStats.todayRevenue.toLocaleString()}</p>
+              <p className="text-3xl font-bold">{formatCurrency(dashboardData.todayStats.todayRevenue)}</p>
             </div>
             <div className="text-center">
               <p className="text-white/80 text-sm mb-1">Bookings Today</p>
@@ -359,14 +386,7 @@ export const Admin = () => {
             accentClass="text-orange-700"
             onClick={() => navigate('/admin/technician-requests')}
           />
-          <AlertCard
-            title="Unresolved Complaints"
-            count={dashboardData.pendingActions.pendingComplaints}
-            icon={MessageSquare}
-            bgClass="bg-red-50"
-            accentClass="text-red-700"
-            onClick={() => navigate('/admin/feedbacks')}
-          />
+         
         </div>
 
         {/* 3. Booking Status & 4. Revenue Analytics */}
@@ -419,24 +439,85 @@ export const Admin = () => {
             </div>
           </div>
 
-          {/* Weekly Revenue Line Chart */}
+          {/* Revenue Trend Chart - Weekly/Monthly Toggle */}
           <div className="bg-white rounded-xl shadow-md border border-gray-100 p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Weekly Revenue Trend</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={weeklyRevenueData}>
-                <defs>
-                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
-                <YAxis />
-                <Tooltip />
-                <Area type="monotone" dataKey="revenue" stroke="#8B5CF6" fillOpacity={1} fill="url(#colorRevenue)" />
-              </AreaChart>
-            </ResponsiveContainer>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-gray-900">Earnings Trend</h3>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setRevenueView('weekly')}
+                  className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
+                    revenueView === 'weekly'
+                      ? 'bg-green-500 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Weekly
+                </button>
+                <button
+                  onClick={() => setRevenueView('monthly')}
+                  className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
+                    revenueView === 'monthly'
+                      ? 'bg-green-500 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Monthly
+                </button>
+              </div>
+            </div>
+            {revenueView === 'weekly' && (
+              <ResponsiveContainer width="100%" height={320}>
+                <AreaChart data={weeklyRevenueData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis dataKey="day" stroke="#6B7280" />
+                  <YAxis stroke="#6B7280" />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB', borderRadius: '8px' }}
+                    formatter={(value, name) => {
+                      if (name === 'revenue') {
+                        return [formatCurrency(value), 'Revenue'];
+                      }
+                      return [value, name];
+                    }}
+                    labelFormatter={(label) => `${label}`}
+                  />
+                  <Area type="monotone" dataKey="revenue" stroke="#10B981" strokeWidth={2} fillOpacity={1} fill="url(#colorRevenue)" isAnimationActive={true} />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+            {revenueView === 'monthly' && (
+              <ResponsiveContainer width="100%" height={320}>
+                <AreaChart data={monthlyRevenueData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorMonthly" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis dataKey="month" stroke="#6B7280" />
+                  <YAxis stroke="#6B7280" />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB', borderRadius: '8px' }}
+                    formatter={(value, name) => {
+                      if (name === 'revenue') {
+                        return [formatCurrency(value), 'Revenue'];
+                      }
+                      return [value, name];
+                    }}
+                    labelFormatter={(label) => `${label}`}
+                  />
+                  <Area type="monotone" dataKey="revenue" stroke="#10B981" strokeWidth={2} fillOpacity={1} fill="url(#colorMonthly)" isAnimationActive={true} />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
@@ -458,9 +539,31 @@ export const Admin = () => {
 
         {/* Most Booked Services Chart */}
         <div className="bg-white rounded-xl shadow-md border border-gray-100 p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">Most Booked Services</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-gray-900">Most Booked Services</h3>
+            <select
+              value={selectedCategory}
+              onChange={(e) => {
+                setSelectedCategory(e.target.value);
+                if (e.target.value) {
+                  const filtered = mostBookedServices.filter(service => service.categoryId && service.categoryId.toString() === e.target.value);
+                  setFilteredMostBookedServices(filtered);
+                } else {
+                  setFilteredMostBookedServices(mostBookedServices);
+                }
+              }}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="">All Categories</option>
+              {allCategories.map((category) => (
+                <option key={category._id} value={category._id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <ResponsiveContainer width="100%" height={350}>
-            <BarChart data={mostBookedServices} layout="vertical">
+            <BarChart data={filteredMostBookedServices} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis type="number" />
               <YAxis dataKey="name" type="category" width={150} />
@@ -468,6 +571,11 @@ export const Admin = () => {
               <Bar dataKey="bookings" fill="#8B5CF6" radius={[0, 8, 8, 0]} />
             </BarChart>
           </ResponsiveContainer>
+          {filteredMostBookedServices.length === 0 && (
+            <div className="text-center text-gray-500 py-8">
+              <p>No services found for this category</p>
+            </div>
+          )}
         </div>
 
         {/* 11. Peak Hours Chart */}
@@ -491,11 +599,7 @@ export const Admin = () => {
             <p className="text-3xl font-bold text-gray-900">{performanceMetrics.completionRate}%</p>
             <p className="text-sm text-gray-600">Completion Rate</p>
           </div>
-          <div className="bg-white rounded-xl shadow-md border border-gray-100 p-6 text-center">
-            <Clock className="text-blue-500 mx-auto mb-2" size={32} />
-            <p className="text-3xl font-bold text-gray-900">{performanceMetrics.avgResponseTime}m</p>
-            <p className="text-sm text-gray-600">Avg Response Time</p>
-          </div>
+          
           <div className="bg-white rounded-xl shadow-md border border-gray-100 p-6 text-center">
             <Star className="text-yellow-500 mx-auto mb-2" size={32} />
             <p className="text-3xl font-bold text-gray-900">{performanceMetrics.customerSatisfaction}/5</p>
@@ -516,7 +620,7 @@ export const Admin = () => {
               🏆 Top Technicians
             </h3>
             <div className="space-y-3">
-              {topTechnicians.map((tech, index) => (
+              {topTechnicians.slice(0, 5).map((tech, index) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
                   <div className="flex items-center gap-3">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${
@@ -534,7 +638,7 @@ export const Admin = () => {
                       <Star size={14} fill="currentColor" />
                       <span className="font-bold text-sm">{tech.rating}</span>
                     </div>
-                    <p className="text-xs text-green-600">₹{(tech.earnings / 1000).toFixed(0)}K</p>
+                    <p className="text-xs text-green-600">{formatCurrency(tech.earnings)}</p>
                   </div>
                 </div>
               ))}
@@ -547,7 +651,7 @@ export const Admin = () => {
               ⭐ Top Services
             </h3>
             <div className="space-y-3">
-              {topServices.map((service, index) => (
+              {topServices.slice(0, 5).map((service, index) => (
                 <div key={index} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
                   <div className="flex items-center justify-between mb-1">
                     <p className="font-semibold text-gray-900 text-sm">{service.name}</p>
@@ -560,7 +664,7 @@ export const Admin = () => {
                   </div>
                   <div className="flex items-center justify-between text-xs text-gray-600">
                     <span>{service.bookings} bookings</span>
-                    <span className="text-green-600 font-semibold">₹{(service.revenue / 1000).toFixed(0)}K</span>
+                    <span className="text-green-600 font-semibold">{formatCurrency(service.revenue)}</span>
                   </div>
                 </div>
               ))}
@@ -572,7 +676,7 @@ export const Admin = () => {
             <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
               📍 Top Locations
             </h3>
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
               {topLocations.map((location, index) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
                   <div className="flex items-center gap-3">
@@ -588,35 +692,7 @@ export const Admin = () => {
           </div>
         </div>
 
-        {/* 12. Financial Summary */}
-        <div className="bg-white rounded-xl shadow-md border border-gray-100 p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">Financial Summary</h3>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="text-center p-4 bg-green-50 rounded-lg">
-              <p className="text-sm text-gray-600 mb-1">Platform Earnings</p>
-              <p className="text-2xl font-bold text-green-600">₹{(financialSummary.platformEarnings / 1000).toFixed(0)}K</p>
-            </div>
-            <div className="text-center p-4 bg-orange-50 rounded-lg">
-              <p className="text-sm text-gray-600 mb-1">Pending Payouts</p>
-              <p className="text-2xl font-bold text-orange-600">₹{(financialSummary.pendingPayouts / 1000).toFixed(0)}K</p>
-            </div>
-            <div className="text-center p-4 bg-red-50 rounded-lg">
-              <p className="text-sm text-gray-600 mb-1">Refunds Processed</p>
-              <p className="text-2xl font-bold text-red-600">₹{(financialSummary.refundsProcessed / 1000).toFixed(0)}K</p>
-            </div>
-            <div className="text-center p-4 bg-blue-50 rounded-lg">
-              <p className="text-sm text-gray-600 mb-2">Payment Methods</p>
-              <div className="space-y-1">
-                {financialSummary.paymentMethods.map((method, index) => (
-                  <div key={index} className="flex items-center justify-between text-xs">
-                    <span className="text-gray-600">{method.method}</span>
-                    <span className="font-bold text-gray-900">{method.percentage}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
+
 
         {/* Footer */}
         <div className="text-center text-gray-500 text-sm py-4">

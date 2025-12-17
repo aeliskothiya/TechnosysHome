@@ -354,15 +354,44 @@ const TechnicianDashboard = () => {
     if (userData?.role === "technician") fetchPending();
   }, [backendUrl, userData?.role]);
 
+  // Request notification permission on mount
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().then(permission => {
+        console.log('Notification permission:', permission);
+      });
+    }
+  }, []);
+
   // Realtime socket listeners
   useEffect(() => {
     if (!socket) return;
+
+    const showNotification = (payload) => {
+      if (Notification.permission === 'granted') {
+        const notification = new Notification('New Booking Request!', {
+          body: `You have a new service booking request. Click to view details.`,
+          icon: '/favicon.ico',
+          tag: `booking-${payload.bookingId}`,
+          requireInteraction: true,
+        });
+
+        notification.onclick = () => {
+          window.focus();
+          notification.close();
+        };
+      }
+    };
 
     const onNew = (payload) => {
       setIncoming((prev) => {
         if (prev.find((p) => p.bookingId === payload.bookingId)) return prev;
         const newItem = { ...payload, loading: true };
         fetchDetails(payload.bookingId, newItem);
+        
+        // Show browser notification
+        showNotification(payload);
+        
         return [newItem, ...prev];
       });
     };

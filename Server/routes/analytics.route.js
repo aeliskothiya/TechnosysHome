@@ -3,6 +3,7 @@ import userAuth from "../middleware/userAuth.js";
 import {
   getDashboardAnalytics,
   getWeeklyRevenue,
+  getMonthlyRevenue,
   getBookingStatusDistribution,
   getRevenueByService,
   getPeakHours,
@@ -31,6 +32,7 @@ router.use((req, res, next) => {
 // Dashboard analytics endpoints
 router.get("/dashboard", getDashboardAnalytics);
 router.get("/weekly-revenue", getWeeklyRevenue);
+router.get("/monthly-revenue", getMonthlyRevenue);
 router.get("/booking-status", getBookingStatusDistribution);
 router.get("/revenue-by-service", getRevenueByService);
 router.get("/peak-hours", getPeakHours);

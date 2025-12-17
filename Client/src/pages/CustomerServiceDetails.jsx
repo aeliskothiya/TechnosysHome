@@ -6,7 +6,7 @@ import { Star, ArrowLeft } from "lucide-react";
 import { toast } from "react-toastify";
 import { AppContext } from "../context/AppContext";
 
-const backendUrl = "http://localhost:4000";
+const backendUrl = "http://localhost:6001";
 
 const CustomerServiceDetails = () => {
   const { id } = useParams(); // service id
@@ -257,8 +257,8 @@ const CustomerServiceDetails = () => {
           },
         },
         prefill: {
-          email: userData?.Email || '',
-          contact: userData?.MobileNumber || '',
+          email: userData?.email || '',
+          contact: userData?.mobile || "",
         },
         theme: {
           color: '#4a56e2',
@@ -697,52 +697,75 @@ const CustomerServiceDetails = () => {
               )}
 
               {stage !== "success" && stage !== "accepted" && stage !== "in-progress" && stage !== "completed" && stage !== "cancelled" && (
-                <div className="flex items-center justify-between bg-gray-50 rounded-lg p-4">
-                  <div>
-                    <p className="text-sm text-gray-600">Total Amount</p>
-                    <p className="text-2xl font-bold text-gray-900">₹{service.price}</p>
+                <div className="space-y-4">
+                  {/* Email Alert - Show if email is not set */}
+                  {!userData?.email && (
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-orange-900 mb-2">📧 Email Required</h4>
+                      <p className="text-orange-700 text-sm mb-3">Please add your email address to your profile before booking a service.</p>
+                      <button
+                        onClick={() => navigate('/customer/profile')}
+                        className="px-4 py-2 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700"
+                      >
+                        Add Email in Profile
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Payment Summary & Action */}
+                  <div className="flex items-center justify-between bg-gray-50 rounded-lg p-4">
+                    <div>
+                      <p className="text-sm text-gray-600">Total Amount</p>
+                      <p className="text-2xl font-bold text-gray-900">₹{service.price}</p>
+                    </div>
+                    <button
+                      disabled={!address || !date || !timeSlot || (typeof timeSlot === 'object' && !timeSlot.display) || isProcessing || !userData?.email}
+                      className="px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      title={!userData?.email ? "Please add email in profile to proceed" : ""}
+                      onClick={async () => {
+                        if (!address) {
+                          toast.error('Please add your address first');
+                          return;
+                        }
+                        if (!date || !timeSlot || (typeof timeSlot === 'object' && !timeSlot.display)) {
+                          toast.error('Please select date and time slot');
+                          return;
+                        }
+                        // Check if email is set
+                        if (!userData?.email) {
+                          toast.error('Please update your email address in profile before booking');
+                          return;
+                        }
+                        // Run precheck
+                        const precheckOk = await runPrecheck();
+                        if (!precheckOk) {
+                          return;
+                        }
+                        
+                        // Prepare booking data
+                        const bookingData = {
+                          SubCategoryID: id,
+                          Date: date,
+                          TimeSlot: timeSlot
+                        };
+                        
+                        // Start payment flow (creates payment → verifies → creates booking → broadcasts)
+                        await customerPayment(bookingData);
+                      }}
+                    >
+                      {isProcessing ? (
+                        <span className="flex items-center gap-2">
+                          <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Processing...
+                        </span>
+                      ) : (
+                        "Pay Now"
+                      )}
+                    </button>
                   </div>
-                  <button
-                    disabled={!address || !date || !timeSlot || (typeof timeSlot === 'object' && !timeSlot.display) || isProcessing}
-                    className="px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    onClick={async () => {
-                      if (!address) {
-                        toast.error('Please add your address first');
-                        return;
-                      }
-                      if (!date || !timeSlot || (typeof timeSlot === 'object' && !timeSlot.display)) {
-                        toast.error('Please select date and time slot');
-                        return;
-                      }
-                      // Run precheck
-                      const precheckOk = await runPrecheck();
-                      if (!precheckOk) {
-                        return;
-                      }
-                      
-                      // Prepare booking data
-                      const bookingData = {
-                        SubCategoryID: id,
-                        Date: date,
-                        TimeSlot: timeSlot
-                      };
-                      
-                      // Start payment flow (creates payment → verifies → creates booking → broadcasts)
-                      await customerPayment(bookingData);
-                    }}
-                  >
-                    {isProcessing ? (
-                      <span className="flex items-center gap-2">
-                        <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Processing...
-                      </span>
-                    ) : (
-                      "Pay Now"
-                    )}
-                  </button>
                 </div>
               )}
             </div>

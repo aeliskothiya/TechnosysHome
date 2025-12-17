@@ -69,7 +69,7 @@ const storage = multer.diskStorage({
 const fileFilter = (req, file, cb) => {
   // Check file extension
   const ext = file.originalname.split(".").pop().toLowerCase();
-
+  
   // Check file types
   if (file.fieldname === "idProof") {
     if (
@@ -159,7 +159,7 @@ authRouter.get(
 authRouter.get(
   "/google/callback",
   passport.authenticate("google", {
-    failureRedirect: "http://localhost:5173/login",
+    failureRedirect: "http://localhost:5174/login",
     session: true,
   }),
   async (req, res) => {
@@ -178,7 +178,7 @@ authRouter.get(
     });
 
     // Send user back to your app (your routes are: /, /login, /email-verify, /reset-password)
-    res.redirect("http://localhost:5173/");
+    res.redirect("http://localhost:5174/");
   }
 );
 

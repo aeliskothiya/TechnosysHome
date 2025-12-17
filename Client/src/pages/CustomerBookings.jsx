@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useContext, useRef } from "react";
 import { AppContext } from "../context/AppContext";
 import axios from "axios";
-import { ArrowLeft, Clock, CheckCircle, XCircle, AlertCircle, HelpCircle, Star, MessageSquare } from "lucide-react";
+import { ArrowLeft, Clock, CheckCircle, XCircle, AlertCircle, HelpCircle, Star, MessageSquare, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import ChatPage from "./ChatPage";
 import FeedbackModal from "../components/FeedbackModal";
 import ComplaintModal from "../components/ComplaintModal";
 import BookingTracker from "../components/BookingTracker";
@@ -22,6 +23,8 @@ const CustomerBookings = () => {
   const [selectedBookingForFeedback, setSelectedBookingForFeedback] = useState(null);
   const [feedbackData, setFeedbackData] = useState({});
   const [complaintData, setComplaintData] = useState({});
+  const [chatBookingId, setChatBookingId] = useState(null);
+  const [unreadCounts, setUnreadCounts] = useState({});
   const { userData, backendUrl, socket } = useContext(AppContext);
   const navigate = useNavigate();
   const processedAutoCancels = useRef(new Set());
@@ -113,11 +116,46 @@ const CustomerBookings = () => {
         fetchFeedbackForBooking(booking._id);
         fetchComplaintForBooking(booking._id);
       });
+
+      // Fetch unread counts for active chats
+      const activeBookings = data.bookings.filter(b => 
+        ['Confirmed', 'In-Progress', 'Completed'].includes(b.Status)
+      );
+      activeBookings.forEach(booking => {
+        fetchUnreadCount(booking._id);
+      });
     } catch (error) {
       console.error("Error fetching bookings:", error);
       toast.error("Failed to load bookings");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUnreadCount = async (bookingId) => {
+    try {
+      // First check if chat exists by calling the chat endpoint
+      const { data } = await axios.get(
+        `${backendUrl}/api/chat/${bookingId}`,
+        { withCredentials: true }
+      );
+      
+      if (data.success && data.chat) {
+        // Now fetch messages to get unread count
+        const messagesData = await axios.get(
+          `${backendUrl}/api/chat/${bookingId}/messages?page=1&limit=1`,
+          { withCredentials: true }
+        );
+        
+        if (messagesData.data.success && messagesData.data.unreadCount > 0) {
+          setUnreadCounts(prev => ({ ...prev, [bookingId]: messagesData.data.unreadCount }));
+        }
+      }
+    } catch (error) {
+      // Silently fail - chat might not exist yet or user doesn't have access
+      if (error.response?.status !== 404 && error.response?.status !== 403) {
+        console.error('Error fetching unread count:', error);
+      }
     }
   };
 
@@ -213,11 +251,35 @@ const CustomerBookings = () => {
     });
   }, [currentTime, bookings, backendUrl]);
 
+  // Request notification permission on mount
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().then(permission => {
+        console.log('Notification permission:', permission);
+      });
+    }
+  }, []);
+
   useEffect(() => {
     if (!socket) return;
 
     const handleBookingAccepted = ({ bookingId, technicianId, status }) => {
       toast.success("A technician has accepted your booking!");
+
+      // Show browser notification
+      if (Notification.permission === 'granted') {
+        const notification = new Notification('Booking Confirmed!', {
+          body: 'A technician has accepted your booking. Service will begin soon.',
+          icon: '/favicon.ico',
+          tag: `booking-${bookingId}`,
+          requireInteraction: true,
+        });
+
+        notification.onclick = () => {
+          window.focus();
+          notification.close();
+        };
+      }
 
       setBookings(prev =>
         prev.map(b =>
@@ -232,6 +294,21 @@ const CustomerBookings = () => {
 
     const handleBookingAutoCancelled = ({ bookingId, message }) => {
       toast.error(message || "Your booking was automatically cancelled.");
+
+      // Show browser notification
+      if (Notification.permission === 'granted') {
+        const notification = new Notification('Booking Cancelled', {
+          body: message || 'Your booking was automatically cancelled due to no technician acceptance.',
+          icon: '/favicon.ico',
+          tag: `booking-cancel-${bookingId}`,
+          requireInteraction: true,
+        });
+
+        notification.onclick = () => {
+          window.focus();
+          notification.close();
+        };
+      }
 
       setBookings(prev =>
         prev.map(b =>
@@ -356,8 +433,8 @@ const CustomerBookings = () => {
     const diffMs = 10 * 60 * 1000 - (currentTime - bookingTime);
     if (diffMs <= 0) return null;
 
-    const m = Math.floor(diffMs / 60000);
-    const s = Math.floor((diffMs % 60000) / 1000);
+    const m = Math.floor(diffMs / 60010);
+    const s = Math.floor((diffMs % 60010) / 1000);
 
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
@@ -535,6 +612,23 @@ const CustomerBookings = () => {
                   >
                     View Details
                   </button>
+
+                  {['Confirmed','In-Progress','Completed'].includes(booking.Status) && (
+                    <button
+                      onClick={() => {
+                        setChatBookingId(booking._id);
+                        setUnreadCounts(prev => ({ ...prev, [booking._id]: 0 }));
+                      }}
+                      className="relative px-4 py-1.5 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-md hover:bg-green-100 transition flex items-center gap-1"
+                    >
+                      <MessageSquare size={14} /> Chat
+                      {unreadCounts[booking._id] > 0 && (
+                        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                          {unreadCounts[booking._id]}
+                        </span>
+                      )}
+                    </button>
+                  )}
 
                   {canCancel(booking) && (
                     <button
@@ -863,6 +957,20 @@ const CustomerBookings = () => {
                 {selectedBookingDetails.Status === "Completed" && (
                   <div className="flex gap-3">
                     <button
+                      onClick={() => {
+                        setChatBookingId(selectedBookingDetails._id);
+                        setUnreadCounts(prev => ({ ...prev, [selectedBookingDetails._id]: 0 }));
+                      }}
+                      className="relative px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition flex items-center gap-2"
+                    >
+                      <MessageSquare size={16} /> Chat
+                      {unreadCounts[selectedBookingDetails._id] > 0 && (
+                        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                          {unreadCounts[selectedBookingDetails._id]}
+                        </span>
+                      )}
+                    </button>
+                    <button
                       onClick={() => handleOpenFeedbackModal(selectedBookingDetails)}
                       className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition flex items-center gap-2"
                     >
@@ -911,6 +1019,30 @@ const CustomerBookings = () => {
           onSuccess={handleComplaintSuccess}
           existingComplaint={complaintData[selectedBookingForFeedback._id]}
         />
+      )}
+
+      {/* Chat Modal */}
+      {chatBookingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setChatBookingId(null)}>
+          <div className="bg-white w-full max-w-4xl h-[90vh] rounded-lg shadow-2xl overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-green-50 to-blue-50 flex-shrink-0">
+              <h3 className="font-semibold text-lg text-gray-800">Chat with Technician</h3>
+              <button onClick={() => setChatBookingId(null)} className="text-gray-500 hover:text-gray-700 transition">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <ChatPage 
+                bookingId={chatBookingId} 
+                currentUser={{
+                  _id: userData?._id || userData?.id,
+                  role: 'customer',
+                  name: `${userData?.FirstName || userData?.Name || ''} ${userData?.LastName || ''}`.trim() || 'Customer'
+                }} 
+              />
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

@@ -68,6 +68,7 @@ import TechnicianDashboard from "./pages/TechnicianDashboard";
 import AdminTechnicianCompliant from "./pages/AdminTechnicianCompliant";
 import AdminSubscriptions from "./pages/AdminSubscriptions";
 import CustomerServiceDetails from "./pages/CustomerServiceDetails";
+import ChatPage from "./pages/ChatPage";
 
 // Protected Route Component
 const ProtectedRoute = ({ children, role }) => {
@@ -140,7 +141,7 @@ const AuthRedirectHandler = () => {
           console.log("Redirecting to admin");
 
           navigate("/admin/dashboard");
-        }
+        } 
         if (userData?.role === "technician") {
           console.log("Redirecting to technicain");
 
@@ -149,7 +150,7 @@ const AuthRedirectHandler = () => {
         if (userData?.role === "customer") {
           console.log("Redirecting to customer");
           navigate("/customer");
-        }
+        } 
         // if (!userData?.role) {
         //   console.log("Redirecting to Home");
 
@@ -193,7 +194,7 @@ const App = () => {
       <Routes>
         {/* 🌐 Public and Auth routes */}
         <Route path="/" element={<Home />} />
-        {/* <Route path="/temp" element={<TempPage />} /> */}
+         {/* <Route path="/temp" element={<TempPage />} /> */}
         <Route path="/login" element={<Login />} />
         <Route path="/login-customer" element={<LoginCustomer />} />
         <Route path="/email-verify" element={<EmailVerify />} />
@@ -236,6 +237,7 @@ const App = () => {
           <Route path="dashboard" element={<TechnicianDashboard />} />
           <Route path="availability" element={<TechnicianAvailability />} />
           <Route path="bookings" element={<TechnicianBookings />} />
+          <Route path="chat/:bookingId" element={<TechnicianChatWrapper />} />
           <Route path="subscription" element={<TechnicianSubscription />} />
           <Route path="feedbacks" element={<TechnicianFeedbacks />} />
           <Route path="profile" element={<TechnicianProfile />} />
@@ -257,6 +259,7 @@ const App = () => {
           <Route path="service/:id" element={<CustomerServiceDetails />} />
           <Route path="profile" element={<CustomerProfile />} />
           <Route path="bookings" element={<CustomerBookings />} />
+          <Route path="chat/:bookingId" element={<ChatPageWrapper />} />
           <Route path="settings" element={<CustomerSettings />} />
         </Route>
 
@@ -274,3 +277,32 @@ const App = () => {
 };
 
 export default App;
+
+// Wrapper to inject bookingId and current user into ChatPage
+function ChatPageWrapper() {
+  const { userData } = useContext(AppContext);
+  const location = useLocation();
+  const bookingId = location.pathname.split('/').pop();
+
+  const currentUser = {
+    _id: userData?._id || userData?.id,
+    role: 'customer',
+    name: `${userData?.FirstName || userData?.Name || ''} ${userData?.LastName || ''}`.trim() || 'Customer',
+  };
+
+  return <ChatPage bookingId={bookingId} currentUser={currentUser} />;
+}
+
+function TechnicianChatWrapper() {
+  const { userData } = useContext(AppContext);
+  const location = useLocation();
+  const bookingId = location.pathname.split('/').pop();
+
+  const currentUser = {
+    _id: userData?._id || userData?.id,
+    role: 'technician',
+    name: userData?.Name || 'Technician',
+  };
+
+  return <ChatPage bookingId={bookingId} currentUser={currentUser} />;
+}

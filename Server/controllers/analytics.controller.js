@@ -13,10 +13,14 @@ import mongoose from "mongoose";
 export const getDashboardAnalytics = async (req, res) => {
   try {
     const now = new Date();
-    const startOfToday = new Date(now.setHours(0, 0, 0, 0));
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+    const year = now.getUTCFullYear();
+    const month = now.getUTCMonth();
+    const date = now.getUTCDate();
+    
+    const startOfToday = new Date(Date.UTC(year, month, date, 0, 0, 0, 0));
+    const startOfMonth = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
+    const startOfLastMonth = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+    const endOfLastMonth = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
 
     // KPIs - Total Revenue (from technician subscription payments - this is platform revenue)
     const totalRevenueResult = await SubscriptionPayment.aggregate([
@@ -83,8 +87,8 @@ export const getDashboardAnalytics = async (req, res) => {
       ? ((activeTechnicians - lastMonthTechnicians) / lastMonthTechnicians * 100).toFixed(1)
       : 0;
 
-    // Today's Stats (from subscription payments - platform revenue)
-    const todayRevenue = await SubscriptionPayment.aggregate([
+    // Today's Stats (from both subscription and customer payments)
+    const todaySubRevenue = await SubscriptionPayment.aggregate([
       {
         $match: {
           Status: "Success",
@@ -93,6 +97,18 @@ export const getDashboardAnalytics = async (req, res) => {
       },
       { $group: { _id: null, total: { $sum: "$Amount" } } }
     ]);
+
+    const todayCustomerRevenue = await CustomerPayment.aggregate([
+      {
+        $match: {
+          Status: "Success",
+          createdAt: { $gte: startOfToday }
+        }
+      },
+      { $group: { _id: null, total: { $sum: "$Amount" } } }
+    ]);
+
+    const todayRevenue = (todaySubRevenue[0]?.total || 0) + (todayCustomerRevenue[0]?.total || 0);
     
     const todayBookings = await Booking.countDocuments({
       createdAt: { $gte: startOfToday }
@@ -155,7 +171,7 @@ export const getDashboardAnalytics = async (req, res) => {
           techniciansGrowth: parseFloat(techniciansGrowth)
         },
         todayStats: {
-          todayRevenue: todayRevenue[0]?.total || 0,
+          todayRevenue: todayRevenue,
           todayBookings,
           newCustomers,
           activeUsersNow: 0 // This would need WebSocket/real-time tracking
@@ -181,16 +197,21 @@ export const getDashboardAnalytics = async (req, res) => {
 // Get weekly revenue data (from subscription payments)
 export const getWeeklyRevenue = async (req, res) => {
   try {
+    // Get dates using UTC to match MongoDB storage
     const today = new Date();
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - 6);
-    startOfWeek.setHours(0, 0, 0, 0);
+    const year = today.getUTCFullYear();
+    const month = today.getUTCMonth();
+    const date = today.getUTCDate();
+    
+    const startOfToday = new Date(Date.UTC(year, month, date, 0, 0, 0, 0));
+    const startOfWeek = new Date(Date.UTC(year, month, date - 6, 0, 0, 0, 0));
+    const endOfTomorrow = new Date(Date.UTC(year, month, date + 1, 0, 0, 0, 0));
 
-    const weeklyData = await SubscriptionPayment.aggregate([
+    const weeklySubData = await SubscriptionPayment.aggregate([
       {
         $match: {
           Status: "Success",
-          createdAt: { $gte: startOfWeek }
+          createdAt: { $gte: startOfWeek, $lt: endOfTomorrow }
         }
       },
       {
@@ -200,15 +221,41 @@ export const getWeeklyRevenue = async (req, res) => {
           },
           revenue: { $sum: "$Amount" }
         }
-      },
-      { $sort: { _id: 1 } }
+      }
     ]);
+
+    // Get revenue from service bookings
+    const weeklyCustomerData = await CustomerPayment.aggregate([
+      {
+        $match: {
+          Status: "Success",
+          createdAt: { $gte: startOfWeek, $lt: endOfTomorrow }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" }
+          },
+          revenue: { $sum: "$Amount" }
+        }
+      }
+    ]);
+
+    // Merge subscription and customer payment data
+    const mergedRevenue = {};
+    weeklySubData.forEach(item => {
+      mergedRevenue[item._id] = (mergedRevenue[item._id] || 0) + item.revenue;
+    });
+    weeklyCustomerData.forEach(item => {
+      mergedRevenue[item._id] = (mergedRevenue[item._id] || 0) + item.revenue;
+    });
 
     // Get booking counts for each day
     const bookingCounts = await Booking.aggregate([
       {
         $match: {
-          createdAt: { $gte: startOfWeek }
+          createdAt: { $gte: startOfWeek, $lt: endOfTomorrow }
         }
       },
       {
@@ -218,8 +265,7 @@ export const getWeeklyRevenue = async (req, res) => {
           },
           bookings: { $count: {} }
         }
-      },
-      { $sort: { _id: 1 } }
+      }
     ]);
 
     // Format data with day names
@@ -232,12 +278,12 @@ export const getWeeklyRevenue = async (req, res) => {
       const dateStr = date.toISOString().split('T')[0];
       const dayName = dayNames[date.getDay()];
 
-      const revenueData = weeklyData.find(d => d._id === dateStr);
+      const revenue = mergedRevenue[dateStr] || 0;
       const bookingData = bookingCounts.find(d => d._id === dateStr);
 
       formattedData.push({
         day: dayName,
-        revenue: revenueData?.revenue || 0,
+        revenue: revenue,
         bookings: bookingData?.bookings || 0
       });
     }
@@ -251,6 +297,107 @@ export const getWeeklyRevenue = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to fetch weekly revenue",
+      error: error.message
+    });
+  }
+};
+
+// Get monthly revenue for current year
+export const getMonthlyRevenue = async (req, res) => {
+  try {
+    const currentYear = new Date().getUTCFullYear();
+    const startOfYear = new Date(Date.UTC(currentYear, 0, 1, 0, 0, 0, 0));
+    const endOfYear = new Date(Date.UTC(currentYear, 11, 31, 23, 59, 59, 999));
+
+    // Get revenue from subscriptions
+    const monthlySubData = await SubscriptionPayment.aggregate([
+      {
+        $match: {
+          Status: "Success",
+          createdAt: { $gte: startOfYear, $lte: endOfYear }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $month: "$createdAt"
+          },
+          revenue: { $sum: "$Amount" }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // Get revenue from service bookings
+    const monthlyCustomerData = await CustomerPayment.aggregate([
+      {
+        $match: {
+          Status: "Success",
+          createdAt: { $gte: startOfYear, $lte: endOfYear }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $month: "$createdAt"
+          },
+          revenue: { $sum: "$Amount" }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // Merge subscription and customer payment data
+    const mergedRevenue = {};
+    monthlySubData.forEach(item => {
+      mergedRevenue[item._id] = (mergedRevenue[item._id] || 0) + item.revenue;
+    });
+    monthlyCustomerData.forEach(item => {
+      mergedRevenue[item._id] = (mergedRevenue[item._id] || 0) + item.revenue;
+    });
+
+    // Get booking counts for each month
+    const bookingCounts = await Booking.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startOfYear, $lte: endOfYear }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $month: "$createdAt"
+          },
+          bookings: { $count: {} }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // Format data with month names
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const formattedData = [];
+
+    for (let month = 1; month <= 12; month++) {
+      const revenue = mergedRevenue[month] || 0;
+      const bookingData = bookingCounts.find(d => d._id === month);
+
+      formattedData.push({
+        month: monthNames[month - 1],
+        revenue: revenue,
+        bookings: bookingData?.bookings || 0
+      });
+    }
+
+    res.json({
+      success: true,
+      data: formattedData
+    });
+  } catch (error) {
+    console.error("Error fetching monthly revenue:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch monthly revenue",
       error: error.message
     });
   }
@@ -767,9 +914,20 @@ export const getMostBookedServices = async (req, res) => {
       },
       { $unwind: { path: "$subCategory", preserveNullAndEmptyArrays: true } },
       {
+        $lookup: {
+          from: "servicecategories",
+          localField: "subCategory.serviceCategoryId",
+          foreignField: "_id",
+          as: "category"
+        }
+      },
+      { $unwind: { path: "$category", preserveNullAndEmptyArrays: true } },
+      {
         $group: {
           _id: "$SubCategoryID",
           name: { $first: "$subCategory.name" },
+          categoryId: { $first: "$category._id" },
+          categoryName: { $first: "$category.name" },
           bookings: { $count: {} },
           price: { $first: "$subCategory.price" }
         }
@@ -781,8 +939,12 @@ export const getMostBookedServices = async (req, res) => {
     const formattedData = mostBooked.map(item => ({
       name: item.name || "Uncategorized",
       bookings: item.bookings,
-      value: item.bookings // for pie chart
+      value: item.bookings,
+      categoryId: item.categoryId ? item.categoryId.toString() : null,
+      categoryName: item.categoryName || "Uncategorized"
     }));
+
+    console.log('Most Booked Services Data:', JSON.stringify(formattedData, null, 2));
 
     res.json({
       success: true,

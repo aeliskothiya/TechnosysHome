@@ -3,10 +3,13 @@ import axios from 'axios';
 import { AppContext } from '../context/AppContext';
 import { toast } from 'react-toastify';
 import ArrivalOTPModal from '../components/ArrivalOTPModal';
-import { Search, Calendar, CheckCircle, Clock, User, MapPin, Phone, Package } from 'lucide-react';
+import { Search, Calendar, CheckCircle, Clock, User, MapPin, Phone, Package, MessageSquare, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import ChatPage from './ChatPage';
 
 const TechnicianBookings = () => {
   const { backendUrl, userData } = useContext(AppContext);
+  const navigate = useNavigate();
   
   // View state: 'active' or 'completed'
   const [currentView, setCurrentView] = useState('active');
@@ -25,6 +28,8 @@ const TechnicianBookings = () => {
   const [generatingOTP, setGeneratingOTP] = useState(null);
   const [selectedBookingForOTP, setSelectedBookingForOTP] = useState(null);
   const [completingService, setCompletingService] = useState(null);
+  const [chatBookingId, setChatBookingId] = useState(null);
+  const [unreadCounts, setUnreadCounts] = useState({});
 
   // Separate pagination for each view
   const [activePage, setActivePage] = useState(1);
@@ -103,6 +108,10 @@ const TechnicianBookings = () => {
       );
       if (data.success && Array.isArray(data.bookings)) {
         setAcceptedBookings(data.bookings);
+        // Fetch unread counts
+        data.bookings.forEach(booking => {
+          fetchUnreadCount(booking._id);
+        });
       }
     } catch (e) {
       console.error('Failed to fetch accepted bookings', e);
@@ -121,11 +130,42 @@ const TechnicianBookings = () => {
       );
       if (data.success && Array.isArray(data.bookings)) {
         setCompletedBookings(data.bookings);
+        // Fetch unread counts
+        data.bookings.forEach(booking => {
+          fetchUnreadCount(booking._id);
+        });
       }
     } catch (e) {
       console.error('Failed to fetch completed bookings', e);
     } finally {
       setLoadingCompleted(false);
+    }
+  };
+
+  const fetchUnreadCount = async (bookingId) => {
+    try {
+      // First check if chat exists by calling the chat endpoint
+      const { data } = await axios.get(
+        `${backendUrl}/api/chat/${bookingId}`,
+        { withCredentials: true }
+      );
+      
+      if (data.success && data.chat) {
+        // Now fetch messages to get unread count
+        const messagesData = await axios.get(
+          `${backendUrl}/api/chat/${bookingId}/messages?page=1&limit=1`,
+          { withCredentials: true }
+        );
+        
+        if (messagesData.data.success && messagesData.data.unreadCount > 0) {
+          setUnreadCounts(prev => ({ ...prev, [bookingId]: messagesData.data.unreadCount }));
+        }
+      }
+    } catch (error) {
+      // Silently fail - chat might not exist yet or user doesn't have access
+      if (error.response?.status !== 404 && error.response?.status !== 403) {
+        console.error('Error fetching unread count:', error);
+      }
     }
   };
 
@@ -494,6 +534,23 @@ const TechnicianBookings = () => {
                               {completingService === b._id ? 'Sending OTP...' : 'Service Completed'}
                             </button>
                           )}
+
+                          {['Confirmed','In-Progress'].includes(b.Status) && (
+                            <button
+                              onClick={() => {
+                                setChatBookingId(b._id);
+                                setUnreadCounts(prev => ({ ...prev, [b._id]: 0 }));
+                              }}
+                              className='relative w-full py-2 bg-green-50 text-green-700 border border-green-200 rounded-lg font-medium transition hover:bg-green-100 flex items-center justify-center gap-2'
+                            >
+                              <MessageSquare className='h-4 w-4' /> Chat
+                              {unreadCounts[b._id] > 0 && (
+                                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                                  {unreadCounts[b._id]}
+                                </span>
+                              )}
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -511,6 +568,12 @@ const TechnicianBookings = () => {
           )}
         </div>
       </div>
+      {/* Chat button for completed list items */}
+      {currentView === 'completed' && (
+        <div className='max-w-7xl mx-auto mt-4'>
+          {/* No per-item actions added here; users can open a chat from booking details or add if needed */}
+        </div>
+      )}
 
       {/* OTP Modal */}
       {selectedBookingForOTP && (
@@ -525,6 +588,30 @@ const TechnicianBookings = () => {
               : 'arrival'
           }
         />
+      )}
+
+      {/* Chat Modal */}
+      {chatBookingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setChatBookingId(null)}>
+          <div className="bg-white w-full max-w-4xl h-[90vh] rounded-lg shadow-2xl overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-blue-50 to-purple-50 flex-shrink-0">
+              <h3 className="font-semibold text-lg text-gray-800">Chat with Customer</h3>
+              <button onClick={() => setChatBookingId(null)} className="text-gray-500 hover:text-gray-700 transition">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <ChatPage 
+                bookingId={chatBookingId} 
+                currentUser={{
+                  _id: userData?._id || userData?.id,
+                  role: 'technician',
+                  name: userData?.Name || 'Technician'
+                }} 
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

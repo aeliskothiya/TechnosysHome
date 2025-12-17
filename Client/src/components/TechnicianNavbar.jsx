@@ -134,7 +134,7 @@ const TechnicianSidebar = () => {
     { name: "Bookings", path: "/technician/bookings", icon: <CalendarCheck size={20} /> },
     { name: "Subscription", path: "/technician/subscription", icon: <CreditCard size={20} /> },
     { name: "Feedback", path: "/technician/feedbacks", icon: <MessageSquare size={20} /> },
-    // { name: "Settings", path: "/technician/settings", icon: <Settings size={20} /> },
+    { name: "My Analytics", path: "/technician/settings", icon: <Settings size={20} /> },
   ];
 
   return (

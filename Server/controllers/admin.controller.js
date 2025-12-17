@@ -186,7 +186,7 @@ export const approveTechnician = async (req, res) => {
       technician.IFSCCode = bank?.IFSCCode || null;
     }
 
-
+    
 
     if (!technician) {
       return res.status(404).json({
@@ -196,11 +196,11 @@ export const approveTechnician = async (req, res) => {
     }
     // Send approval email
     try {
-
+      
 
       // Create a safe variable for service category name
       const serviceCategoryName = technician.ServiceCategoryID?.name || 'Not specified';
-
+      
 
       await transporter.sendMail({
         from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
@@ -226,8 +226,9 @@ export const approveTechnician = async (req, res) => {
             <p>You can now login to your account and start accepting service requests from customers.</p>
             
             <div style="text-align: center; margin: 25px 0;">
-              <a href="${process.env.FRONTEND_URL || "http://localhost:5173"
-          }/login" 
+              <a href="${
+                process.env.FRONTEND_URL || "http://localhost:5174"
+              }/login" 
                  style="background-color: #4F46E5; color: white; padding: 12px 30px; 
                         text-decoration: none; border-radius: 6px; display: inline-block;">
                 Login to Your Account
@@ -352,8 +353,9 @@ export const rejectTechnician = async (req, res) => {
             <p>We encourage you to review our technician requirements and apply again in the future if your circumstances change.</p>
             
             <div style="text-align: center; margin: 25px 0;">
-              <a href="${process.env.FRONTEND_URL || "http://localhost:5173"
-          }/contact" 
+              <a href="${
+                process.env.FRONTEND_URL || "http://localhost:5173"
+              }/contact" 
                  style="background-color: #6b7280; color: white; padding: 12px 30px; 
                         text-decoration: none; border-radius: 6px; display: inline-block;">
                 Contact Support
