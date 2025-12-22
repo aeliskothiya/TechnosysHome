@@ -9,6 +9,10 @@ export const AppContextProvider = ({ children }) => {
   const backendUrl =
     import.meta.env.VITE_BACKEND_URL || "https://technosyshome.onrender.com";
 
+  // Log for debugging
+  console.log('Backend URL:', backendUrl);
+  console.log('VITE_BACKEND_URL env:', import.meta.env.VITE_BACKEND_URL);
+
   axios.defaults.withCredentials = true;
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);

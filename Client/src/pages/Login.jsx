@@ -92,6 +92,10 @@ export const Login = () => {
   const [verificationType, setVerificationType] = useState(""); // 'email' or 'mobile'
   const [verificationId, setVerificationId] = useState(""); // For Firebase verification
 
+  // Allow OTP auto-fill on production builds when explicitly enabled for testing
+  const shouldAutofillOtp =
+    import.meta.env.VITE_SHOW_DEV_OTP === "true" || import.meta.env.MODE !== "production";
+
   // Password show hide
   const [showPassword, setShowPassword] = useState({
     login: false,
@@ -468,8 +472,8 @@ export const Login = () => {
           setVerificationId(data.verificationId);
         }
 
-        // For development - auto-fill OTP
-        if (process.env.NODE_ENV === "development" && data.otp) {
+        // Auto-fill OTP when allowed
+        if (shouldAutofillOtp && data.otp) {
           setOtp(data.otp);
         }
       } else {
