@@ -37,7 +37,7 @@ import chatRoutes from "./routes/chat.route.js";
 import { startAutoCancelScheduler } from "./controllers/booking.controller.js";
 
 const app = express();
-const port = process.env.PORT || 6001;
+const port = process.env.PORT || 4000;
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -45,7 +45,7 @@ const __dirname = path.dirname(__filename);
 
 connectdb();
 
-const allowedOrigins = ['http://localhost:5173', 'http://localhost:5174'];
+const allowedOrigins = ['http://localhost:5173', 'http://localhost:5175'];
 
 // Sanitize data for mongoose injection
 // app.use(mongoSanitize());

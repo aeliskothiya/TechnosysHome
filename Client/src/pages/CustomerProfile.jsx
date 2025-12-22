@@ -4,6 +4,7 @@ import { AppContext } from "../context/AppContext";
 import { toast } from "react-toastify";
 import { Loader2, Save, X, User, Phone, Mail } from "lucide-react";
 import MapPicker from "../components/MapPicker.jsx";
+import ServiceOrbitLoader from "../components/ServiceOrbitLoader";
 
 const CustomerProfile = () => {
   const { backendUrl, userData } = useContext(AppContext);
@@ -457,10 +458,8 @@ const CustomerProfile = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="relative">
-            <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-          </div>
+        <div className="text-center space-y-3">
+          <ServiceOrbitLoader size={140} />
           <p className="text-gray-600 font-medium">Loading profile data...</p>
         </div>
       </div>

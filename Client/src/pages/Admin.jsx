@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, ResponsiveContainer
+  Legend, ResponsiveContainer, LabelList
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, Users, Wrench, Calendar,
@@ -45,6 +45,9 @@ export const Admin = () => {
   const [revenueView, setRevenueView] = useState('weekly'); // 'weekly' or 'monthly'
   const [bookingStatusData, setBookingStatusData] = useState([]);
   const [revenueByServiceData, setRevenueByServiceData] = useState([]);
+  const [revenueServiceView, setRevenueServiceView] = useState('weekly');
+  const [monthlyBookingsByCategoryData, setMonthlyBookingsByCategoryData] = useState([]);
+  const [selectedMonthForBookings, setSelectedMonthForBookings] = useState(new Date().getUTCMonth());
   const [peakHoursData, setPeakHoursData] = useState([]);
   const [topTechnicians, setTopTechnicians] = useState([]);
   const [topServices, setTopServices] = useState([]);
@@ -53,6 +56,7 @@ export const Admin = () => {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [mostBookedServices, setMostBookedServices] = useState([]);
   const [filteredMostBookedServices, setFilteredMostBookedServices] = useState([]);
+  const [mostBookedServiceView, setMostBookedServiceView] = useState('weekly');
   const [performanceMetrics, setPerformanceMetrics] = useState({
     completionRate: 0,
     avgResponseTime: 0,
@@ -70,7 +74,7 @@ export const Admin = () => {
   const [error, setError] = useState(null);
 
   // API base URL
-  const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:6001';
+  const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
 
   // Fetch all analytics data
   const fetchAnalytics = async () => {
@@ -94,6 +98,7 @@ export const Admin = () => {
         monthlyRes,
         statusRes,
         revenueServiceRes,
+        monthlyBookingsByCategoryRes,
         peakRes,
         topTechsRes,
         topServicesRes,
@@ -107,14 +112,15 @@ export const Admin = () => {
         fetch(`${API_URL}/api/analytics/weekly-revenue`, fetchOptions),
         fetch(`${API_URL}/api/analytics/monthly-revenue`, fetchOptions),
         fetch(`${API_URL}/api/analytics/booking-status`, fetchOptions),
-        fetch(`${API_URL}/api/analytics/revenue-by-service`, fetchOptions),
+        fetch(`${API_URL}/api/analytics/revenue-by-service?period=${revenueServiceView}`, fetchOptions),
+        fetch(`${API_URL}/api/analytics/monthly-bookings-by-category`, fetchOptions),
         fetch(`${API_URL}/api/analytics/peak-hours`, fetchOptions),
         fetch(`${API_URL}/api/analytics/top-technicians`, fetchOptions),
         fetch(`${API_URL}/api/analytics/top-services`, fetchOptions),
         fetch(`${API_URL}/api/analytics/top-locations`, fetchOptions),
         fetch(`${API_URL}/api/analytics/performance-metrics`, fetchOptions),
         fetch(`${API_URL}/api/analytics/financial-summary`, fetchOptions),
-        fetch(`${API_URL}/api/analytics/most-booked-services`, fetchOptions),
+        fetch(`${API_URL}/api/analytics/most-booked-services?period=${mostBookedServiceView}`, fetchOptions),
         fetch(`${API_URL}/api/service-categories`, fetchOptions)
       ]);
 
@@ -124,6 +130,7 @@ export const Admin = () => {
       const monthly = await monthlyRes.json();
       const status = await statusRes.json();
       const revenueService = await revenueServiceRes.json();
+      const monthlyBookingsByCategory = await monthlyBookingsByCategoryRes.json();
       const peak = await peakRes.json();
       const topTechs = await topTechsRes.json();
       const topSvcs = await topServicesRes.json();
@@ -150,6 +157,7 @@ export const Admin = () => {
       if (monthly.success) setMonthlyRevenueData(monthly.data);
       if (status.success) setBookingStatusData(status.data);
       if (revenueService.success) setRevenueByServiceData(revenueService.data);
+      if (monthlyBookingsByCategory.success) setMonthlyBookingsByCategoryData(monthlyBookingsByCategory.data);
       if (peak.success) setPeakHoursData(peak.data);
       if (topTechs.success) setTopTechnicians(topTechs.data);
       if (topSvcs.success) setTopServices(topSvcs.data);
@@ -171,10 +179,114 @@ export const Admin = () => {
       setLoading(false);
     }
   };
+
+  // Fetch monthly bookings by category for specific month
+  const fetchMonthlyBookingsByCategory = async (month) => {
+    try {
+      const fetchOptions = {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      };
+
+      const res = await fetch(`${API_URL}/api/analytics/monthly-bookings-by-category?month=${month}`, fetchOptions);
+      const data = await res.json();
+      
+      if (data.success) {
+        setMonthlyBookingsByCategoryData(data.data);
+      }
+    } catch (err) {
+      console.error('Error fetching monthly bookings by category:', err);
+    }
+  };
+
+  // Fetch only revenue by service data
+  const fetchRevenueByService = async (period) => {
+    try {
+      const fetchOptions = {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      };
+
+      const response = await fetch(
+        `${API_URL}/api/analytics/revenue-by-service?period=${period}`,
+        fetchOptions
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setRevenueByServiceData(data.data);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching revenue by service:', error);
+    }
+  };
+
+  // Fetch only most booked services data
+  const fetchMostBookedServices = async (period) => {
+    try {
+      const fetchOptions = {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      };
+
+      const response = await fetch(
+        `${API_URL}/api/analytics/most-booked-services?period=${period}`,
+        fetchOptions
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setMostBookedServices(data.data);
+          // Apply category filter if one is selected
+          if (selectedCategory) {
+            const filtered = data.data.filter(service => service.categoryId && service.categoryId.toString() === selectedCategory);
+            setFilteredMostBookedServices(filtered);
+          } else {
+            setFilteredMostBookedServices(data.data);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching most booked services:', error);
+    }
+  };
+
   // Fetch data on component mount
   useEffect(() => {
     fetchAnalytics();
+    fetchMonthlyBookingsByCategory(selectedMonthForBookings);
   }, []);
+
+  // Fetch monthly bookings when month changes
+  useEffect(() => {
+    fetchMonthlyBookingsByCategory(selectedMonthForBookings);
+  }, [selectedMonthForBookings]);
+
+  // Refetch only revenue data when filter changes
+  useEffect(() => {
+    if (revenueServiceView) {
+      fetchRevenueByService(revenueServiceView);
+    }
+  }, [revenueServiceView]);
+
+  // Refetch most booked services when filter changes
+  useEffect(() => {
+    if (mostBookedServiceView) {
+      fetchMostBookedServices(mostBookedServiceView);
+    }
+  }, [mostBookedServiceView]);
 
   // Generate colors for pie chart
   const COLORS = ['#8B5CF6', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#8B5CF6'];
@@ -351,10 +463,12 @@ export const Admin = () => {
 
         {/* 2. Today's Activity */}
         <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl shadow-lg p-6 text-white">
-          <div className="flex items-center gap-2 mb-4">
-            <Activity className="animate-pulse" size={24} />
-            <h2 className="text-xl font-bold">Today's Live Activity</h2>
-            <span className="px-3 py-1 bg-white/20 rounded-full text-sm animate-pulse">● LIVE</span>
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <div className="flex items-center gap-2">
+              <Activity className="animate-pulse flex-shrink-0" size={24} />
+              <h2 className="text-xl font-bold">Today's Live Activity</h2>
+            </div>
+            <span className="px-3 py-1 bg-white/20 rounded-full text-sm animate-pulse w-auto">● LIVE</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div className="text-center">
@@ -521,18 +635,118 @@ export const Admin = () => {
           </div>
         </div>
 
+        {/* Monthly Bookings by Category */}
+        <div className="bg-white rounded-xl shadow-md border border-gray-100 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-bold text-gray-900">Category Bookings</h3>
+            <select
+              value={selectedMonthForBookings}
+              onChange={(e) => setSelectedMonthForBookings(parseInt(e.target.value))}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="0">January</option>
+              <option value="1">February</option>
+              <option value="2">March</option>
+              <option value="3">April</option>
+              <option value="4">May</option>
+              <option value="5">June</option>
+              <option value="6">July</option>
+              <option value="7">August</option>
+              <option value="8">September</option>
+              <option value="9">October</option>
+              <option value="10">November</option>
+              <option value="11">December</option>
+            </select>
+          </div>
+          <ResponsiveContainer width="100%" height={340}>
+            <LineChart data={monthlyBookingsByCategoryData} margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+              <XAxis dataKey="name" stroke="#6B7280" />
+              <YAxis stroke="#6B7280" allowDecimals={false} />
+              <Tooltip
+                contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB', borderRadius: '8px' }}
+                formatter={(value) => [`${value} bookings`, 'Bookings']}
+              />
+              <Legend />
+              <Line
+                type="monotone"
+                dataKey="bookings"
+                stroke="#f59e0b"
+                strokeWidth={3}
+                dot={{ r: 6, fill: '#f59e0b', stroke: '#fff', strokeWidth: 2 }}
+                activeDot={{ r: 8, stroke: '#f59e0b', strokeWidth: 2, fill: '#fff' }}
+              >
+                <LabelList
+                  dataKey="bookings"
+                  content={({ x, y, value }) => (
+                    <text
+                      x={(x || 0) + 10}
+                      y={(y || 0) - 8}
+                      fill="#111827"
+                      fontSize={12}
+                      fontWeight={700}
+                      textAnchor="start"
+                    >
+                      {value}
+                    </text>
+                  )}
+                />
+              </Line>
+            </LineChart>
+          </ResponsiveContainer>
+          {monthlyBookingsByCategoryData.length === 0 && (
+            <div className="text-center text-gray-500 py-8">
+              <p>No bookings data available for this month</p>
+            </div>
+          )}
+        </div>
+
         {/* Revenue by Service Category */}
         <div className="bg-white rounded-xl shadow-md border border-gray-100 p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">Revenue by Service Category</h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-bold text-gray-900">Revenue by Service Category</h3>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setRevenueServiceView('weekly')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  revenueServiceView === 'weekly'
+                    ? 'bg-cyan-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Weekly
+              </button>
+              <button
+                onClick={() => setRevenueServiceView('monthly')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  revenueServiceView === 'monthly'
+                    ? 'bg-cyan-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Monthly
+              </button>
+              <button
+                onClick={() => setRevenueServiceView('alltime')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  revenueServiceView === 'alltime'
+                    ? 'bg-cyan-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                All Time
+              </button>
+            </div>
+          </div>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={revenueByServiceData}>
-              <CartesianGrid strokeDasharray="3 3" />
+              <CartesianGrid strokeDasharray="2 2" />
               <XAxis dataKey="category" />
               <YAxis />
               <Tooltip />
               <Legend />
               <Bar dataKey="revenue" fill="#3B82F6" />
-              <Bar dataKey="bookings" fill="#10B981" />
+             
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -541,26 +755,60 @@ export const Admin = () => {
         <div className="bg-white rounded-xl shadow-md border border-gray-100 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-gray-900">Most Booked Services</h3>
-            <select
-              value={selectedCategory}
-              onChange={(e) => {
-                setSelectedCategory(e.target.value);
-                if (e.target.value) {
-                  const filtered = mostBookedServices.filter(service => service.categoryId && service.categoryId.toString() === e.target.value);
-                  setFilteredMostBookedServices(filtered);
-                } else {
-                  setFilteredMostBookedServices(mostBookedServices);
-                }
-              }}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            >
-              <option value="">All Categories</option>
-              {allCategories.map((category) => (
-                <option key={category._id} value={category._id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
+            <div className="flex gap-3">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setMostBookedServiceView('weekly')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    mostBookedServiceView === 'weekly'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Weekly
+                </button>
+                <button
+                  onClick={() => setMostBookedServiceView('monthly')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    mostBookedServiceView === 'monthly'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Monthly
+                </button>
+                <button
+                  onClick={() => setMostBookedServiceView('alltime')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    mostBookedServiceView === 'alltime'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  All Time
+                </button>
+              </div>
+              <select
+                value={selectedCategory}
+                onChange={(e) => {
+                  setSelectedCategory(e.target.value);
+                  if (e.target.value) {
+                    const filtered = mostBookedServices.filter(service => service.categoryId && service.categoryId.toString() === e.target.value);
+                    setFilteredMostBookedServices(filtered);
+                  } else {
+                    setFilteredMostBookedServices(mostBookedServices);
+                  }
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="">All Categories</option>
+                {allCategories.map((category) => (
+                  <option key={category._id} value={category._id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <ResponsiveContainer width="100%" height={350}>
             <BarChart data={filteredMostBookedServices} layout="vertical">

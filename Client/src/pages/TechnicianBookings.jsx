@@ -34,7 +34,7 @@ const TechnicianBookings = () => {
   // Separate pagination for each view
   const [activePage, setActivePage] = useState(1);
   const [completedPage, setCompletedPage] = useState(1);
-  const pageSize = 5;
+  const pageSize = 10;
 
   // Pagination Component (Matching AdminCategories)
   const Pagination = ({ page, totalPages, onChange }) => {

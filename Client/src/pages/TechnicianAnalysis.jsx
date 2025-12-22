@@ -14,9 +14,19 @@ import ServiceOrbitLoader from '../components/ServiceOrbitLoader';
 import { useNavigate } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
 
-export default function TechnicianSettings() {
+export default function TechnicianAnalysis() {
   const navigate = useNavigate();
   const { backendUrl } = useContext(AppContext);
+  
+  // Coin Badge Component
+  const CoinBadge = ({ coins }) => (
+    <div className=" py-1 px-3 rounded-full inline-flex items-center gap-1.5 transition-all duration-300 hover:shadow-lg hover:shadow-yellow-300/40">
+      <div className="w-5 h-5 bg-yellow-400 rounded-full flex items-center justify-center shadow-md flex-shrink-0">
+        <span className="text-gray-900 font-bold text-[10px]">C</span>
+      </div>
+      <span className="font-semibold text-black text-xs whitespace-nowrap">{Number(coins).toFixed(2)}</span>
+    </div>
+  );
   
   // State for all dashboard data
   const [dashboardData, setDashboardData] = useState({
@@ -67,6 +77,7 @@ export default function TechnicianSettings() {
   const [earningsView, setEarningsView] = useState('weekly');
   const [bookingStatus, setBookingStatus] = useState([]);
   const [revenueByService, setRevenueByService] = useState([]);
+  const [revenueServiceView, setRevenueServiceView] = useState('weekly');
   const [recentFeedback, setRecentFeedback] = useState([]);
   const [upcomingBookings, setUpcomingBookings] = useState([]);
   const [mostBookedServices, setMostBookedServices] = useState([]);
@@ -80,7 +91,7 @@ export default function TechnicianSettings() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const API_URL = backendUrl || import.meta.env.VITE_BACKEND_URL || 'http://localhost:6001';
+  const API_URL = backendUrl || import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
 
   // Pagination for transactions
   const transactionTotalPages = Math.ceil(recentTransactions.length / transactionPageSize) || 1;
@@ -190,7 +201,7 @@ export default function TechnicianSettings() {
         fetch(`${API_URL}/api/technician-analytics/monthly-earnings`, fetchOptions),
         fetch(`${API_URL}/api/technician-analytics/monthly-earnings-by-month`, fetchOptions),
         fetch(`${API_URL}/api/technician-analytics/booking-status`, fetchOptions),
-        fetch(`${API_URL}/api/technician-analytics/revenue-by-service`, fetchOptions),
+        fetch(`${API_URL}/api/technician-analytics/revenue-by-service?period=${revenueServiceView}`, fetchOptions),
         fetch(`${API_URL}/api/technician-analytics/recent-feedback`, fetchOptions),
         fetch(`${API_URL}/api/technician-analytics/upcoming-bookings`, fetchOptions),
         fetch(`${API_URL}/api/technician-analytics/most-booked-services`, fetchOptions),
@@ -249,10 +260,44 @@ export default function TechnicianSettings() {
     }
   };
 
+  // Fetch only revenue by service data
+  const fetchRevenueByService = async (period) => {
+    try {
+      const fetchOptions = {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      };
+
+      const response = await fetch(
+        `${API_URL}/api/technician-analytics/revenue-by-service?period=${period}`,
+        fetchOptions
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setRevenueByService(data.data);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching revenue by service:', error);
+    }
+  };
+
   // Fetch data on component mount
   useEffect(() => {
     fetchAnalytics();
   }, []);
+
+  // Refetch only revenue data when filter changes
+  useEffect(() => {
+    if (revenueServiceView) {
+      fetchRevenueByService(revenueServiceView);
+    }
+  }, [revenueServiceView]);
 
   // Helper: Smart currency formatter (shows actual number if small, K/M/B if large)
   const formatCurrency = (amount) => {
@@ -444,10 +489,12 @@ export default function TechnicianSettings() {
               Today's Activity
             </h2>
             <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl shadow-lg p-6 text-white">
-              <div className="flex items-center gap-2 mb-4">
-                <Activity className="animate-pulse" size={24} />
-                <h3 className="text-xl font-bold">Live Activity</h3>
-                <span className="px-3 py-1 bg-white/20 rounded-full text-sm animate-pulse">● LIVE</span>
+              <div className="flex flex-wrap items-center gap-2 mb-4">
+                <div className="flex items-center gap-2">
+                  <Activity className="animate-pulse flex-shrink-0" size={24} />
+                  <h3 className="text-xl font-bold">Live Activity</h3>
+                </div>
+                <span className="px-3 py-1 bg-white/20 rounded-full text-sm animate-pulse w-auto">● LIVE</span>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <div className="text-center">
@@ -621,10 +668,44 @@ export default function TechnicianSettings() {
               <TrendingUp className="text-cyan-600" size={20} />
               Service Analytics
             </h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6">
               {/* Revenue by Service */}
               <div className="bg-white rounded-xl shadow-md border border-gray-100 p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Revenue by Service Type</h3>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-bold text-gray-900">Revenue by Service Type</h3>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setRevenueServiceView('alltime')}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        revenueServiceView === 'alltime'
+                          ? 'bg-cyan-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      All Time
+                    </button>
+                    <button
+                      onClick={() => setRevenueServiceView('weekly')}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        revenueServiceView === 'weekly'
+                          ? 'bg-cyan-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      Weekly
+                    </button>
+                    <button
+                      onClick={() => setRevenueServiceView('monthly')}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        revenueServiceView === 'monthly'
+                          ? 'bg-cyan-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      Monthly
+                    </button>
+                  </div>
+                </div>
                 {revenueByService.length > 0 ? (
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={revenueByService}>
@@ -642,7 +723,6 @@ export default function TechnicianSettings() {
                       />
                       <Legend />
                       <Bar dataKey="revenue" fill="#3B82F6" name="Revenue (₹)" />
-                      <Bar dataKey="bookings" fill="#10B981" name="Bookings" />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -657,10 +737,10 @@ export default function TechnicianSettings() {
                 <h3 className="text-lg font-bold text-gray-900 mb-4">Most Booked Services</h3>
                 {mostBookedServices.length > 0 ? (
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={mostBookedServices} layout="vertical">
+                    <BarChart data={mostBookedServices} layout="vertical" margin={{ left: -20 }}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis type="number" />
-                      <YAxis dataKey="name" type="category" width={120} />
+                      <YAxis dataKey="name" type="category" width={115} />
                       <Tooltip />
                       <Bar dataKey="bookings" fill="#8B5CF6" radius={[0, 8, 8, 0]} />
                     </BarChart>
@@ -851,9 +931,7 @@ export default function TechnicianSettings() {
                         {txn.categoryName}
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-bold">
-                          {txn.coinsUsed} 🪙
-                        </span>
+                        <CoinBadge coins={txn.coinsUsed} />
                       </td>
                       <td className="py-3 px-4 text-center">
                         <span className={`px-2 py-1 rounded text-xs font-semibold ${

@@ -12,7 +12,8 @@ import {
   getTopLocations,
   getPerformanceMetrics,
   getFinancialSummary,
-  getMostBookedServices
+  getMostBookedServices,
+  getMonthlyBookingsByCategory
 } from "../controllers/analytics.controller.js";
 
 const router = express.Router();
@@ -42,5 +43,6 @@ router.get("/top-locations", getTopLocations);
 router.get("/performance-metrics", getPerformanceMetrics);
 router.get("/financial-summary", getFinancialSummary);
 router.get("/most-booked-services", getMostBookedServices);
+router.get("/monthly-bookings-by-category", getMonthlyBookingsByCategory);
 
 export default router;

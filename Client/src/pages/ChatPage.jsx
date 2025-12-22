@@ -3,7 +3,7 @@ import ChatWindow from '../components/ChatWindow';
 import MessageInput from '../components/MessageInput';
 import io from 'socket.io-client';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:6001';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 const SOCKET_BASE = API_BASE; // same origin
 
 export default function ChatPage({ bookingId, currentUser }) {

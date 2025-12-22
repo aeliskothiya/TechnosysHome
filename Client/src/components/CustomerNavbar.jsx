@@ -13,7 +13,7 @@ import axios from "axios";
 import { AppContext } from "../context/AppContext";
 import { assets } from "../assets/assets";
 
-const backendUrl = "http://localhost:6001";
+const backendUrl = "http://localhost:4000";
 
 const CustomerNavbar = () => {
   const navigate = useNavigate();
@@ -102,8 +102,8 @@ const CustomerNavbar = () => {
 
             {/* Right side */}
             <div className="flex items-center gap-4">
-              {/* Desktop Profile */}
-              <div className="hidden md:block relative" ref={profileRef}>
+              {/* Profile (shown on all sizes) */}
+              <div className="relative" ref={profileRef}>
                 <button
                   onClick={() => setProfileOpen(!profileOpen)}
                   className="flex items-center gap-2 px-3 py-2 rounded-xl border border-transparent hover:border-gray-200 hover:bg-gray-50 transition-all duration-200"
@@ -163,13 +163,7 @@ const CustomerNavbar = () => {
                 )}
               </div>
 
-              {/* Mobile menu button */}
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden p-2 rounded-xl text-gray-700 hover:bg-gray-100 transition-all duration-200"
-              >
-                {mobileMenuOpen ? <X size={26} /> : <Menu size={26} />}
-              </button>
+              {/* Mobile menu button removed as per request */}
             </div>
           </div>
         </div>
@@ -198,12 +192,12 @@ const CustomerNavbar = () => {
               >
                 <History size={20} /> My Bookings
               </button>
-              <button
+              {/* <button
                 onClick={() => handleNavigation("/customer/settings")}
                 className="flex w-full items-center gap-4 px-6 py-3 border-b border-gray-200/50 text-gray-700 hover:bg-blue-50 transition-all"
               >
                 <Settings size={20} /> Settings
-              </button>
+              </button> */}
               <button
                 onClick={logout}
                 className="flex w-full items-center gap-4 px-6 py-3 text-red-600 hover:bg-red-50 transition-all"

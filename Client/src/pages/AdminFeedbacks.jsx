@@ -34,10 +34,10 @@ export const AdminFeedbacks = () => {
   const [feedbackStatusFilter, setFeedbackStatusFilter] = useState("all");
   const [complaintStatusFilter, setComplaintStatusFilter] = useState("all");
   const [showComplaintFilters, setShowComplaintFilters] = useState(false);
-  const [showFeedbackFilters, setShowFeedbackFilters] = useState(false);
+  const [showRatingDropdown, setShowRatingDropdown] = useState(false);
   const [currentFeedbackPage, setCurrentFeedbackPage] = useState(1);
   const [currentComplaintPage, setCurrentComplaintPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(7);
   const [viewDetails, setViewDetails] = useState(null);
   
   // Threshold settings
@@ -202,6 +202,72 @@ export const AdminFeedbacks = () => {
     );
   };
 
+  // Pagination Component
+  const Pagination = ({ page, totalPages, onChange }) => {
+    const getPages = () => {
+      let arr = [];
+      arr.push(1);
+
+      if (page > 3) arr.push("...");
+
+      for (let p = page - 1; p <= page + 1; p++) {
+        if (p > 1 && p < totalPages) arr.push(p);
+      }
+
+      if (page < totalPages - 2) arr.push("...");
+
+      if (totalPages > 1) arr.push(totalPages);
+
+      return arr;
+    };
+
+    return (
+      <div className="flex items-center justify-center gap-2 mt-6 select-none">
+        <button
+          onClick={() => onChange(Math.max(1, page - 1))}
+          disabled={page === 1}
+          className={`px-4 py-2 rounded-lg border text-sm transition-all duration-200 ${
+            page === 1
+              ? "opacity-40 cursor-not-allowed"
+              : "hover:bg-gray-100 shadow-sm"
+          }`}
+        >
+          Previous
+        </button>
+
+        {getPages().map((p, i) =>
+          p === "..." ? (
+            <span key={i} className="px-3 py-2 text-gray-500">…</span>
+          ) : (
+            <button
+              key={i}
+              onClick={() => onChange(p)}
+              className={`w-10 h-10 flex items-center justify-center rounded-lg text-sm border transition-all ${
+                p === page
+                  ? "bg-gray-900 text-white shadow-md scale-110 border-gray-900"
+                  : "hover:bg-gray-100 text-gray-700 border-gray-300"
+              }`}
+            >
+              {p}
+            </button>
+          )
+        )}
+
+        <button
+          onClick={() => onChange(Math.min(totalPages, page + 1))}
+          disabled={page === totalPages}
+          className={`px-4 py-2 rounded-lg border text-sm transition-all duration-200 ${
+            page === totalPages
+              ? "opacity-40 cursor-not-allowed"
+              : "hover:bg-gray-100 shadow-sm"
+          }`}
+        >
+          Next
+        </button>
+      </div>
+    );
+  };
+
   // Get status color - REMOVED (no status anymore)
 
   if (loading) {
@@ -325,7 +391,7 @@ export const AdminFeedbacks = () => {
             </div>
 
             {/* Feedback Actions */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-6 mb-8">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-6 mb-8 relative z-30">
               <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
                 <div className="relative flex-1 w-full sm:max-w-md">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -338,42 +404,92 @@ export const AdminFeedbacks = () => {
                   />
                 </div>
 
-                <div className="flex gap-3 w-full sm:w-auto">
-                  <button
-                    onClick={() => setShowFeedbackFilters(!showFeedbackFilters)}
-                    className="flex items-center space-x-2 px-4 py-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-all duration-300 hover:scale-105 bg-white/50 backdrop-blur-sm"
-                  >
-                    <Filter className="h-4 w-4" />
-                    <span>Filters</span>
-                    {showFeedbackFilters ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Filters Row */}
-              {showFeedbackFilters && (
-                <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-gray-200 mt-4">
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                <div className="flex gap-3 w-full sm:w-auto items-center">
+                  <div className="relative z-50">
+                    <label className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">
                       Filter by Rating
                     </label>
-                    <select
-                      value={feedbackStatusFilter}
-                      onChange={(e) => setFeedbackStatusFilter(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/50 backdrop-blur-sm"
+                    <button
+                      type="button"
+                      onClick={() => setShowRatingDropdown(!showRatingDropdown)}
+                      onBlur={() => setTimeout(() => setShowRatingDropdown(false), 200)}
+                      className="w-full sm:w-56 px-4 py-3 border-2 border-gray-300 rounded-xl bg-white shadow-sm flex items-center justify-between space-x-2 hover:border-blue-500 hover:shadow-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                     >
-                      <option value="all">All Ratings</option>
-                      <option value="high">High (4+ stars)</option>
-                      <option value="medium">Medium (3 stars)</option>
-                      <option value="low">Low (≤2 stars)</option>
-                    </select>
+                      <div className="flex items-center space-x-2">
+                        <Filter className="h-4 w-4 text-blue-600" />
+                        <span className="text-sm font-medium text-gray-800">
+                          {feedbackStatusFilter === "all" && "All Ratings"}
+                          {feedbackStatusFilter === "high" && "High (4+ stars)"}
+                          {feedbackStatusFilter === "medium" && "Medium (3 stars)"}
+                          {feedbackStatusFilter === "low" && "Low (≤2 stars)"}
+                        </span>
+                      </div>
+                      {showRatingDropdown ? (
+                        <ChevronUp className="h-4 w-4 text-gray-500" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-gray-500" />
+                      )}
+                    </button>
+
+                    {showRatingDropdown && (
+                      <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200/50 p-2 z-[100] min-w-[200px]">
+                        <div
+                          className={`px-4 py-2 rounded-lg cursor-pointer transition-colors duration-200 ${
+                            feedbackStatusFilter === "all"
+                              ? "bg-blue-100 text-blue-900 font-medium"
+                              : "hover:bg-blue-50 text-gray-700"
+                          }`}
+                          onMouseDown={() => {
+                            setFeedbackStatusFilter("all");
+                            setShowRatingDropdown(false);
+                          }}
+                        >
+                          All Ratings
+                        </div>
+                        <div
+                          className={`px-4 py-2 rounded-lg cursor-pointer transition-colors duration-200 ${
+                            feedbackStatusFilter === "high"
+                              ? "bg-blue-100 text-blue-900 font-medium"
+                              : "hover:bg-blue-50 text-gray-700"
+                          }`}
+                          onMouseDown={() => {
+                            setFeedbackStatusFilter("high");
+                            setShowRatingDropdown(false);
+                          }}
+                        >
+                          High (4+ stars)
+                        </div>
+                        <div
+                          className={`px-4 py-2 rounded-lg cursor-pointer transition-colors duration-200 ${
+                            feedbackStatusFilter === "medium"
+                              ? "bg-blue-100 text-blue-900 font-medium"
+                              : "hover:bg-blue-50 text-gray-700"
+                          }`}
+                          onMouseDown={() => {
+                            setFeedbackStatusFilter("medium");
+                            setShowRatingDropdown(false);
+                          }}
+                        >
+                          Medium (3 stars)
+                        </div>
+                        <div
+                          className={`px-4 py-2 rounded-lg cursor-pointer transition-colors duration-200 ${
+                            feedbackStatusFilter === "low"
+                              ? "bg-blue-100 text-blue-900 font-medium"
+                              : "hover:bg-blue-50 text-gray-700"
+                          }`}
+                          onMouseDown={() => {
+                            setFeedbackStatusFilter("low");
+                            setShowRatingDropdown(false);
+                          }}
+                        >
+                          Low (≤2 stars)
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-              )}
+              </div>
             </div>
 
             {/* Feedbacks List */}
@@ -386,7 +502,7 @@ export const AdminFeedbacks = () => {
                   </h3>
                   <p className="text-gray-500 mb-6 max-w-md mx-auto">
                     {feedbackSearchTerm || feedbackStatusFilter !== "all"
-                      ? "Try adjusting your search terms or filters"
+                      ? "Try adjusting your search terms or rating filter"
                       : "No feedbacks have been submitted yet"}
                   </p>
                 </div>
@@ -409,35 +525,35 @@ export const AdminFeedbacks = () => {
                           key={feedback._id}
                           className="hover:bg-gray-50/50 transition-colors duration-200"
                         >
-                          <div className="px-6 py-4">
-                            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                          <div className="px-4 py-2.5">
+                            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-2.5">
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center space-x-4 mb-3">
+                                <div className="flex items-center space-x-3 mb-1.5">
                                   <div className="flex-1">
-                                    <div className="flex items-center space-x-3 mb-2">
-                                      <div className="text-lg font-semibold text-gray-900">
+                                    <div className="flex items-center space-x-2 mb-1">
+                                      <div className="text-base font-semibold text-gray-900">
                                         {customerName}
                                       </div>
-                                      <div className="flex items-center space-x-1 text-sm text-gray-500">
-                                        <Calendar className="h-4 w-4" />
+                                      <div className="flex items-center space-x-1 text-xs text-gray-500">
+                                        <Calendar className="h-3.5 w-3.5" />
                                         <span>{date}</span>
                                       </div>
                                     </div>
-                                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 mb-3">
+                                    <div className="flex flex-wrap items-center gap-2.5 text-xs text-gray-600 mb-1.5">
                                       <div className="flex items-center space-x-1">
-                                        <Tag className="h-4 w-4" />
+                                        <Tag className="h-3.5 w-3.5" />
                                         <span>{serviceName}</span>
                                       </div>
                                       <div className="flex items-center space-x-1">
-                                        <User className="h-4 w-4" />
+                                        <User className="h-3.5 w-3.5" />
                                         <span>{technicianName}</span>
                                       </div>
                                     </div>
-                                    <div className="mb-2">
+                                    <div className="mb-1">
                                       {renderStars(feedback.Rating)}
                                     </div>
                                     {feedback.FeedbackText && (
-                                      <p className="text-gray-700 bg-gray-50/50 p-4 rounded-lg border border-gray-200">
+                                      <p className="text-sm text-gray-700 bg-gray-50/50 p-2.5 rounded-lg border border-gray-200">
                                         {feedback.FeedbackText}
                                       </p>
                                     )}
@@ -453,39 +569,12 @@ export const AdminFeedbacks = () => {
 
                   {/* Pagination */}
                   {filteredFeedbacks.length > itemsPerPage && (
-                    <div className="px-6 py-4 border-t border-gray-200">
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm text-gray-600">
-                          Showing {feedbackStartIndex + 1} to {Math.min(feedbackStartIndex + itemsPerPage, filteredFeedbacks.length)} of {filteredFeedbacks.length} feedbacks
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => setCurrentFeedbackPage(prev => Math.max(1, prev - 1))}
-                            disabled={currentFeedbackPage === 1}
-                            className={`px-3 py-2 rounded-lg border text-sm transition-all duration-200 ${
-                              currentFeedbackPage === 1
-                                ? "opacity-40 cursor-not-allowed"
-                                : "hover:bg-gray-100"
-                            }`}
-                          >
-                            Previous
-                          </button>
-                          <span className="text-sm text-gray-700">
-                            Page {currentFeedbackPage} of {totalFeedbackPages}
-                          </span>
-                          <button
-                            onClick={() => setCurrentFeedbackPage(prev => Math.min(totalFeedbackPages, prev + 1))}
-                            disabled={currentFeedbackPage === totalFeedbackPages}
-                            className={`px-3 py-2 rounded-lg border text-sm transition-all duration-200 ${
-                              currentFeedbackPage === totalFeedbackPages
-                                ? "opacity-40 cursor-not-allowed"
-                                : "hover:bg-gray-100"
-                            }`}
-                          >
-                            Next
-                          </button>
-                        </div>
-                      </div>
+                    <div className="px-4 py-3 border-t border-gray-200">
+                      <Pagination 
+                        page={currentFeedbackPage} 
+                        totalPages={totalFeedbackPages} 
+                        onChange={setCurrentFeedbackPage} 
+                      />
                     </div>
                   )}
                 </>
@@ -576,40 +665,40 @@ export const AdminFeedbacks = () => {
                           key={complaint._id}
                           className="hover:bg-gray-50/50 transition-colors duration-200"
                         >
-                          <div className="px-6 py-4">
-                            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                          <div className="px-4 py-2.5">
+                            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-2.5">
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-start justify-between mb-3">
+                                <div className="flex items-start justify-between mb-1.5">
                                   <div className="flex-1">
-                                    <div className="flex items-center space-x-3 mb-2">
-                                      <div className="text-lg font-semibold text-gray-900">
+                                    <div className="flex items-center space-x-2 mb-1">
+                                      <div className="text-base font-semibold text-gray-900">
                                         {customerName}
                                       </div>
                                     </div>
                                     {customerEmail && (
-                                      <div className="text-sm text-gray-600 mb-2">
+                                      <div className="text-xs text-gray-600 mb-1">
                                         {customerEmail}
                                       </div>
                                     )}
-                                    <div className="flex items-center space-x-4 text-sm text-gray-600 mb-2">
+                                    <div className="flex items-center space-x-3 text-xs text-gray-600 mb-1">
                                       <div className="flex items-center space-x-1">
-                                        <Calendar className="h-4 w-4" />
+                                        <Calendar className="h-3.5 w-3.5" />
                                         <span>{date}</span>
                                       </div>
                                       <div className="flex items-center space-x-1">
-                                        <Tag className="h-4 w-4" />
+                                        <Tag className="h-3.5 w-3.5" />
                                         <span>{serviceName}</span>
                                       </div>
                                       <div className="flex items-center space-x-1">
-                                        <User className="h-4 w-4" />
+                                        <User className="h-3.5 w-3.5" />
                                         <span>{technicianName}</span>
                                       </div>
                                     </div>
                                   </div>
                                 </div>
-                                <div className="mb-3">
-                                  <p className="text-gray-700 bg-red-50/50 p-4 rounded-lg border border-red-200">
-                                    <strong className="block text-sm font-semibold text-red-800 mb-1">Complaint:</strong>
+                                <div className="mb-1.5">
+                                  <p className="text-sm text-gray-700 bg-red-50/50 p-2.5 rounded-lg border border-red-200">
+                                    <strong className="block text-xs font-semibold text-red-800 mb-0.5">Complaint:</strong>
                                     {complaint.ComplaintText}
                                   </p>
                                 </div>
@@ -623,39 +712,12 @@ export const AdminFeedbacks = () => {
 
                   {/* Pagination */}
                   {filteredComplaints.length > itemsPerPage && (
-                    <div className="px-6 py-4 border-t border-gray-200">
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm text-gray-600">
-                          Showing {complaintStartIndex + 1} to {Math.min(complaintStartIndex + itemsPerPage, filteredComplaints.length)} of {filteredComplaints.length} complaints
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => setCurrentComplaintPage(prev => Math.max(1, prev - 1))}
-                            disabled={currentComplaintPage === 1}
-                            className={`px-3 py-2 rounded-lg border text-sm transition-all duration-200 ${
-                              currentComplaintPage === 1
-                                ? "opacity-40 cursor-not-allowed"
-                                : "hover:bg-gray-100"
-                            }`}
-                          >
-                            Previous
-                          </button>
-                          <span className="text-sm text-gray-700">
-                            Page {currentComplaintPage} of {totalComplaintPages}
-                          </span>
-                          <button
-                            onClick={() => setCurrentComplaintPage(prev => Math.min(totalComplaintPages, prev + 1))}
-                            disabled={currentComplaintPage === totalComplaintPages}
-                            className={`px-3 py-2 rounded-lg border text-sm transition-all duration-200 ${
-                              currentComplaintPage === totalComplaintPages
-                                ? "opacity-40 cursor-not-allowed"
-                                : "hover:bg-gray-100"
-                            }`}
-                          >
-                            Next
-                          </button>
-                        </div>
-                      </div>
+                    <div className="px-4 py-3 border-t border-gray-200">
+                      <Pagination 
+                        page={currentComplaintPage} 
+                        totalPages={totalComplaintPages} 
+                        onChange={setCurrentComplaintPage} 
+                      />
                     </div>
                   )}
                 </>
@@ -699,36 +761,36 @@ export const AdminFeedbacks = () => {
             onClick={() => setShowThresholdModal(false)}
           >
             <div
-              className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full"
+              className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto scrollbar-hide"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
+              <div className="p-5">
+                <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                    <h2 className="text-xl font-bold text-gray-900">
                       Complaint Threshold Settings
                     </h2>
-                    <p className="text-gray-600">
+                    <p className="text-sm text-gray-600 mt-1">
                       Configure automatic actions based on complaint count
                     </p>
                   </div>
                   <button
                     onClick={() => setShowThresholdModal(false)}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
                   >
-                    <X className="h-6 w-6" />
+                    <X className="h-5 w-5" />
                   </button>
                 </div>
 
-                <div className="space-y-6">
+                <div className="space-y-4">
                   {/* Warning Threshold */}
-                  <div className="bg-gradient-to-r from-yellow-50 to-orange-50 p-6 rounded-xl border-2 border-yellow-200">
-                    <div className="flex items-start space-x-4">
-                      <div className="p-3 bg-yellow-500 rounded-lg">
-                        <AlertCircle className="h-6 w-6 text-white" />
+                  <div className="bg-gradient-to-r from-yellow-50 to-orange-50 p-3 rounded-xl border border-yellow-200">
+                    <div className="flex items-start space-x-3">
+                      <div className="p-2 bg-yellow-500 rounded-lg">
+                        <AlertCircle className="h-5 w-5 text-white" />
                       </div>
                       <div className="flex-1">
-                        <label className="block text-sm font-bold text-gray-900 mb-2">
+                        <label className="block text-sm font-semibold text-gray-900 mb-1">
                           Warning Threshold
                         </label>
                         <input
@@ -736,9 +798,9 @@ export const AdminFeedbacks = () => {
                           min="1"
                           value={thresholds.warningThreshold}
                           onChange={(e) => setThresholds({ ...thresholds, warningThreshold: parseInt(e.target.value) || 0 })}
-                          className="w-full px-4 py-3 border-2 border-yellow-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 text-lg font-semibold"
+                          className="w-full px-3 py-2 border border-yellow-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 text-base font-semibold"
                         />
-                        <p className="text-sm text-gray-700 mt-2">
+                        <p className="text-xs text-gray-700 mt-1">
                           ⚠️ Send warning email • Technician remains active
                         </p>
                       </div>
@@ -746,13 +808,13 @@ export const AdminFeedbacks = () => {
                   </div>
 
                   {/* Temporary Deactivation Threshold */}
-                  <div className="bg-gradient-to-r from-red-50 to-pink-50 p-6 rounded-xl border-2 border-red-200">
-                    <div className="flex items-start space-x-4">
-                      <div className="p-3 bg-red-500 rounded-lg">
-                        <Clock className="h-6 w-6 text-white" />
+                  <div className="bg-gradient-to-r from-red-50 to-pink-50 p-3 rounded-xl border border-red-200">
+                    <div className="flex items-start space-x-3">
+                      <div className="p-2 bg-red-500 rounded-lg">
+                        <Clock className="h-5 w-5 text-white" />
                       </div>
                       <div className="flex-1">
-                        <label className="block text-sm font-bold text-gray-900 mb-2">
+                        <label className="block text-sm font-semibold text-gray-900 mb-1">
                           Temporary Deactivation Threshold
                         </label>
                         <input
@@ -760,23 +822,23 @@ export const AdminFeedbacks = () => {
                           min="1"
                           value={thresholds.tempDeactivationThreshold}
                           onChange={(e) => setThresholds({ ...thresholds, tempDeactivationThreshold: parseInt(e.target.value) || 0 })}
-                          className="w-full px-4 py-3 border-2 border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-lg font-semibold"
+                          className="w-full px-3 py-2 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-base font-semibold"
                         />
-                        <p className="text-sm text-gray-700 mt-2">
-                          🚫 Deactivate for 2 minutes • Auto-reactivate • Send emails
+                        <p className="text-xs text-gray-700 mt-1">
+                          🚫 Deactivate for 1 month • Auto-reactivate • Send emails
                         </p>
                       </div>
                     </div>
                   </div>
 
                   {/* Permanent Deactivation Threshold */}
-                  <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-xl border-2 border-purple-200">
-                    <div className="flex items-start space-x-4">
-                      <div className="p-3 bg-purple-500 rounded-lg">
-                        <X className="h-6 w-6 text-white" />
+                  <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-3 rounded-xl border border-purple-200">
+                    <div className="flex items-start space-x-3">
+                      <div className="p-2 bg-purple-500 rounded-lg">
+                        <X className="h-5 w-5 text-white" />
                       </div>
                       <div className="flex-1">
-                        <label className="block text-sm font-bold text-gray-900 mb-2">
+                        <label className="block text-sm font-semibold text-gray-900 mb-1">
                           Permanent Deactivation Threshold
                         </label>
                         <input
@@ -784,9 +846,9 @@ export const AdminFeedbacks = () => {
                           min="1"
                           value={thresholds.permanentDeactivationThreshold}
                           onChange={(e) => setThresholds({ ...thresholds, permanentDeactivationThreshold: parseInt(e.target.value) || 0 })}
-                          className="w-full px-4 py-3 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-lg font-semibold"
+                          className="w-full px-3 py-2 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-base font-semibold"
                         />
-                        <p className="text-sm text-gray-700 mt-2">
+                        <p className="text-xs text-gray-700 mt-1">
                           ⛔ Permanent deactivation • No auto-reactivation • Manual admin intervention required
                         </p>
                       </div>
@@ -794,20 +856,20 @@ export const AdminFeedbacks = () => {
                   </div>
 
                   {/* Deactivation Duration Info */}
-                  <div className="bg-blue-50 p-6 rounded-xl border-2 border-blue-200">
-                    <div className="flex items-start space-x-4">
-                      <div className="p-3 bg-blue-500 rounded-lg">
-                        <Settings className="h-6 w-6 text-white" />
+                  <div className="bg-blue-50 p-3 rounded-xl border border-blue-200">
+                    <div className="flex items-start space-x-3">
+                      <div className="p-2 bg-blue-500 rounded-lg">
+                        <Settings className="h-5 w-5 text-white" />
                       </div>
                       <div className="flex-1">
-                        <label className="block text-sm font-bold text-gray-900 mb-2">
+                        <label className="block text-sm font-semibold text-gray-900 mb-1">
                           Temporary Deactivation Duration
                         </label>
-                        <div className="text-3xl font-bold text-blue-600 mb-2">
-                          2 Minutes
+                        <div className="text-xl font-bold text-blue-600 mb-1">
+                          1 Month
                         </div>
-                        <p className="text-sm text-gray-700">
-                          ℹ️ This duration is fixed and cannot be changed (testing mode)
+                        <p className="text-xs text-gray-700">
+                          ℹ️ This duration is fixed and cannot be changed 
                         </p>
                       </div>
                     </div>
@@ -815,26 +877,26 @@ export const AdminFeedbacks = () => {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex justify-end space-x-4 mt-8 pt-6 border-t">
+                <div className="flex justify-end space-x-3 mt-5 pt-4 border-t">
                   <button
                     onClick={() => setShowThresholdModal(false)}
-                    className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-300 font-medium"
+                    className="px-5 py-2 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium text-sm"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleThresholdUpdate}
                     disabled={thresholdLoading}
-                    className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl transition-all duration-300 font-medium shadow-lg hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                    className="px-5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl transition-all font-medium shadow-lg hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 text-sm"
                   >
                     {thresholdLoading ? (
                       <>
-                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
                         <span>Saving...</span>
                       </>
                     ) : (
                       <>
-                        <Settings className="h-5 w-5" />
+                        <Settings className="h-4 w-4" />
                         <span>Save Settings</span>
                       </>
                     )}

@@ -134,7 +134,7 @@ const TechnicianSidebar = () => {
     { name: "Bookings", path: "/technician/bookings", icon: <CalendarCheck size={20} /> },
     { name: "Subscription", path: "/technician/subscription", icon: <CreditCard size={20} /> },
     { name: "Feedback", path: "/technician/feedbacks", icon: <MessageSquare size={20} /> },
-    { name: "My Analytics", path: "/technician/settings", icon: <Settings size={20} /> },
+    { name: "My Analytics", path: "/technician/my-analytics", icon: <Settings size={20} /> },
   ];
 
   return (
@@ -218,7 +218,7 @@ const TechnicianSidebar = () => {
                     </NavLink>
                     
                     {/* <NavLink
-                      to="/technician/settings"
+                      to="/technician/my-analytics"
                       onClick={() => setProfileMenuOpen(false)}
                       className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50/80 hover:text-blue-600 transition-colors duration-200"
                     >

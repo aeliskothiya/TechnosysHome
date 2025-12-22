@@ -58,7 +58,7 @@ import TechnicianBookings from "./pages/TechnicianBookings";
 import TechnicianSubscription from "./pages/TechnicianSubscription";
 import TechnicianFeedbacks from "./pages/TechnicianFeedbacks";
 import TechnicianProfile from "./pages/TechnicianProfile";
-import TechnicianSettings from "./pages/TechnicianSettings";
+import TechnicianAnalysis from "./pages/TechnicianAnalysis";
 import CustomerProfile from "./pages/CustomerProfile";
 import CustomerBookings from "./pages/CustomerBookings";
 import CustomerSettings from "./pages/CustomerSettings";
@@ -241,7 +241,7 @@ const App = () => {
           <Route path="subscription" element={<TechnicianSubscription />} />
           <Route path="feedbacks" element={<TechnicianFeedbacks />} />
           <Route path="profile" element={<TechnicianProfile />} />
-          <Route path="settings" element={<TechnicianSettings />} />
+          <Route path="my-analytics" element={<TechnicianAnalysis />} />
         </Route>
 
 

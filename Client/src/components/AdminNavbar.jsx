@@ -84,11 +84,6 @@ const AdminSidebar = () => {
       path: "/admin/technicians", 
       icon: <Users size={18} /> 
     },
-    { 
-      name: "Technician Complaints", 
-      path: "/admin/technician-complaints", 
-      icon: <MessageSquare size={18} /> 
-    },
   ];
 
   // Check if current path is under technicians

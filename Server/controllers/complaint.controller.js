@@ -168,7 +168,8 @@ async function checkAndTriggerThresholdActions(technician, complaintStatus) {
     if (count === tempDeactivationThreshold) {
       console.log(`⏰ Temporary deactivation triggered for ${technician.Name}`);
       
-      const reactivationTime = new Date(Date.now() + 2 * 60 * 1000); // 2 minutes
+      const oneMonthMs = 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds
+      const reactivationTime = new Date(Date.now() + oneMonthMs);
       
       technician.ActiveStatus = "Deactive";
       await technician.save();
@@ -180,7 +181,7 @@ async function checkAndTriggerThresholdActions(technician, complaintStatus) {
       // Send temporary deactivation email
       await sendTempDeactivationEmail(technician, count);
 
-      // Schedule reactivation after 2 minutes
+      // Schedule reactivation after 1 month
       scheduleReactivation(technician._id, reactivationTime);
       
       return;
@@ -360,11 +361,11 @@ async function sendTempDeactivationEmail(technician, complaintCount) {
               <strong>Your account has been temporarily deactivated.</strong>
             </div>
             
-            <p>Due to reaching <strong>${complaintCount} complaints</strong>, your account has been temporarily suspended for <strong>2 minutes</strong>.</p>
+            <p>Due to reaching <strong>${complaintCount} complaints</strong>, your account has been temporarily suspended for <strong>1 month</strong>.</p>
             
             <p><strong>Important Information:</strong></p>
             <ul>
-              <li>Your account will be automatically reactivated after 2 minutes</li>
+              <li>Your account will be automatically reactivated after 1 month</li>
               <li>You will receive a confirmation email when reactivated</li>
               <li>Please improve your service quality to avoid permanent deactivation</li>
             </ul>

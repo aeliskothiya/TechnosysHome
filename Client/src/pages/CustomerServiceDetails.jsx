@@ -1,12 +1,12 @@
 // src/pages/customer/CustomerServiceDetails.jsx
-import React, { useEffect, useState, useContext } from "react";
+import React, { useEffect, useState, useContext, useRef } from "react";
 import axios from "axios";
 import { useParams, useNavigate } from "react-router-dom";
-import { Star, ArrowLeft } from "lucide-react";
+import { Star, ArrowLeft, Calendar, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import { toast } from "react-toastify";
 import { AppContext } from "../context/AppContext";
 
-const backendUrl = "http://localhost:6001";
+const backendUrl = "http://localhost:4000";
 
 const CustomerServiceDetails = () => {
   const { id } = useParams(); // service id
@@ -32,6 +32,10 @@ const CustomerServiceDetails = () => {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancellingBooking, setCancellingBooking] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState(() => new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
+  const datePickerRef = useRef(null);
 
   // Fetch service details
   useEffect(() => {
@@ -82,6 +86,47 @@ const CustomerServiceDetails = () => {
   const TIME_SLOTS = [
     "08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00"
   ];
+
+  const formatDisplayDate = (value) => {
+    if (!value) return "Choose date";
+    const d = new Date(value);
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  };
+
+  const syncMonthYear = (value) => {
+    const base = value ? new Date(value) : new Date();
+    setCurrentMonth(base.getMonth());
+    setCurrentYear(base.getFullYear());
+  };
+
+  const handleDaySelect = (day) => {
+    const selected = new Date(currentYear, currentMonth, day);
+    // Use local date (avoid UTC shift which selected previous day)
+    const y = selected.getFullYear();
+    const m = String(selected.getMonth() + 1).padStart(2, "0");
+    const d = String(selected.getDate()).padStart(2, "0");
+    const localIso = `${y}-${m}-${d}`;
+    setDate(localIso);
+    setIsDatePickerOpen(false);
+  };
+
+  useEffect(() => {
+    if (isDatePickerOpen) {
+      syncMonthYear(date);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDatePickerOpen]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!isDatePickerOpen) return;
+      if (datePickerRef.current && !datePickerRef.current.contains(e.target)) {
+        setIsDatePickerOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isDatePickerOpen]);
 
   // Check if a time slot is in the past
   const isSlotPast = (slotStart) => {
@@ -474,24 +519,24 @@ const CustomerServiceDetails = () => {
 
     {/* Booking Modal */}
     {showModal && (
-      <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-        <div className="bg-white w-full max-w-2xl rounded-xl shadow-lg max-h-[90vh] overflow-y-auto">
+      <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50" onClick={() => setShowModal(false)}>
+        <div className="bg-white w-full max-w-4xl rounded-xl shadow-lg max-h-[90vh] overflow-y-auto scrollbar-hide" style={{scrollbarWidth: 'none', msOverflowStyle: 'none'}} onClick={(e) => e.stopPropagation()}>
           <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white z-10">
             <h3 className="text-lg font-semibold">Book Service</h3>
             <button className="text-gray-500 hover:text-gray-700" onClick={() => setShowModal(false)}>✕</button>
           </div>
 
-          <div className="p-6 space-y-6">
+          <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
             {/* Service Info Card */}
-            <div className="bg-gray-50 rounded-lg p-4 flex gap-4">
+            <div className="bg-gray-50 rounded-lg p-3 sm:p-4 flex gap-3 sm:gap-4">
               <img 
                 src={`${backendUrl}${service.image}`} 
                 alt={service.name}
-                className="w-20 h-20 rounded-lg object-cover"
+                className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg object-cover"
               />
               <div className="flex-1">
-                <h4 className="font-semibold text-lg">{service.name}</h4>
-                <p className="text-2xl font-bold text-sky-600 mt-1">₹{service.price}</p>
+                <h4 className="font-semibold text-base sm:text-lg">{service.name}</h4>
+                <p className="text-xl sm:text-2xl font-bold text-sky-600 mt-1">₹{service.price}</p>
               </div>
             </div>
             {/* Address Section - Always Visible */}
@@ -546,23 +591,135 @@ const CustomerServiceDetails = () => {
             <div className="space-y-4">
               <div>
                 <h4 className="font-semibold text-gray-900 mb-2">Select Date</h4>
-                <input 
-                  type="date" 
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
-                  value={date} 
-                  onChange={e=>setDate(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
-                />
+                <div className="relative" ref={datePickerRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsDatePickerOpen((prev) => !prev)}
+                    className="w-full border border-sky-200 rounded-lg px-4 py-3 flex items-center justify-between shadow-sm hover:border-sky-400 focus:ring-2 focus:ring-sky-300 focus:border-transparent transition"
+                  >
+                    <div className="flex items-center gap-3 text-left">
+                      <div className="w-10 h-10 rounded-md border border-sky-200 flex items-center justify-center bg-sky-50 text-sky-600">
+                        <Calendar size={20} />
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Select Date</p>
+                        <p className="text-sm font-semibold text-gray-900">{formatDisplayDate(date)}</p>
+                      </div>
+                    </div>
+                    <ChevronDown size={18} className={`text-gray-500 transition ${isDatePickerOpen ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {isDatePickerOpen && (
+                    <div className="absolute z-20 mt-2 w-full sm:w-[340px] bg-white rounded-xl shadow-xl border border-gray-200 p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (currentMonth === 0) {
+                              setCurrentYear((y) => y - 1);
+                              setCurrentMonth(11);
+                            } else {
+                              setCurrentMonth((m) => m - 1);
+                            }
+                          }}
+                          className="p-2 rounded-md hover:bg-gray-100 text-gray-600"
+                        >
+                          <ChevronLeft size={18} />
+                        </button>
+                        <div className="text-sm font-semibold text-gray-900">
+                          {new Date(currentYear, currentMonth).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (currentMonth === 11) {
+                              setCurrentYear((y) => y + 1);
+                              setCurrentMonth(0);
+                            } else {
+                              setCurrentMonth((m) => m + 1);
+                            }
+                          }}
+                          className="p-2 rounded-md hover:bg-gray-100 text-gray-600"
+                        >
+                          <ChevronRight size={18} />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-7 text-center text-xs font-semibold text-gray-500 mb-2">
+                        {["Su","Mo","Tu","We","Th","Fr","Sa"].map((d) => (
+                          <span key={d} className="py-1">{d}</span>
+                        ))}
+                      </div>
+
+                      <div className="grid grid-cols-7 gap-1 text-sm">
+                        {Array.from({ length: new Date(currentYear, currentMonth, 1).getDay() }).map((_, idx) => (
+                          <span key={`blank-${idx}`} />
+                        ))}
+                        {Array.from({ length: new Date(currentYear, currentMonth + 1, 0).getDate() }).map((_, idx) => {
+                          const day = idx + 1;
+                          const candidate = new Date(currentYear, currentMonth, day);
+                          const today = new Date();
+                          today.setHours(0,0,0,0);
+                          const isPast = candidate < today;
+                          const isSelected = date && new Date(date).toDateString() === candidate.toDateString();
+                          const isToday = candidate.toDateString() === new Date().toDateString();
+
+                          return (
+                            <button
+                              key={day}
+                              type="button"
+                              disabled={isPast}
+                              onClick={() => handleDaySelect(day)}
+                              className={`h-10 w-10 mx-auto rounded-lg flex items-center justify-center transition-all
+                                ${isSelected ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow" : ""}
+                                ${!isSelected && isToday ? "border border-sky-400 text-sky-700" : ""}
+                                ${!isSelected && !isToday && !isPast ? "text-gray-700 hover:bg-sky-50" : ""}
+                                ${isPast ? "text-gray-400 cursor-not-allowed hover:bg-gray-50" : ""}
+                              `}
+                            >
+                              {day}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="flex items-center justify-between mt-3 text-sm text-sky-600">
+                        <button type="button" className="px-3 py-1.5 rounded-md text-gray-600 hover:bg-gray-100" onClick={() => setIsDatePickerOpen(false)}>Close</button>
+                        <button
+                          type="button"
+                          className="px-3 py-1.5 rounded-md bg-sky-50 text-sky-700 hover:bg-sky-100"
+                          onClick={() => {
+                            const today = new Date();
+                            setCurrentMonth(today.getMonth());
+                            setCurrentYear(today.getFullYear());
+                            const y = today.getFullYear();
+                            const m = String(today.getMonth() + 1).padStart(2, "0");
+                            const d = String(today.getDate()).padStart(2, "0");
+                            setDate(`${y}-${m}-${d}`);
+                            setIsDatePickerOpen(false);
+                          }}
+                        >
+                          Today
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {date && (
-                <div>
+                <div onClick={(e) => {
+                  // Clear selection if clicking outside the grid
+                  if (e.target === e.currentTarget) {
+                    setTimeSlot("");
+                  }
+                }}>
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="font-semibold text-gray-900">Available Time Slots ({date})</h4>
                     <p className="text-sm text-gray-500">Click to select/deselect slots</p>
                   </div>
                   
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3" onClick={(e) => e.stopPropagation()}>
                     {TIME_SLOTS.map((slot) => {
                       const isPast = isSlotPast(slot);
                       const isSelected = timeSlot === slot;
@@ -713,14 +870,14 @@ const CustomerServiceDetails = () => {
                   )}
 
                   {/* Payment Summary & Action */}
-                  <div className="flex items-center justify-between bg-gray-50 rounded-lg p-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-gray-50 rounded-lg p-4 gap-4">
                     <div>
                       <p className="text-sm text-gray-600">Total Amount</p>
-                      <p className="text-2xl font-bold text-gray-900">₹{service.price}</p>
+                      <p className="text-xl sm:text-2xl font-bold text-gray-900">₹{service.price}</p>
                     </div>
                     <button
                       disabled={!address || !date || !timeSlot || (typeof timeSlot === 'object' && !timeSlot.display) || isProcessing || !userData?.email}
-                      className="px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="w-full sm:w-auto px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       title={!userData?.email ? "Please add email in profile to proceed" : ""}
                       onClick={async () => {
                         if (!address) {

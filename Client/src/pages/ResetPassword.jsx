@@ -7,7 +7,7 @@ import { toast } from 'react-toastify';
 
 export const ResetPassword = () => {
   const { backendUrl: contextBackendUrl } = useContext(AppContext);
-  const backendUrl = contextBackendUrl || "http://localhost:6001";
+  const backendUrl = contextBackendUrl || "http://localhost:4000";
   axios.defaults.withCredentials = true;
 
   const navigate = useNavigate();

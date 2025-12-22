@@ -914,11 +914,35 @@ const TechnicianRequest = () => {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div className="p-4 bg-gray-50/50 rounded-xl border border-gray-200/50 text-center">
                         <div className="text-xs text-gray-500 mb-1">Mobile</div>
-                        <div className="text-sm font-medium">{selectedTechnician.isMobileVerified ? "✅ Verified" : "❌ Pending"}</div>
+                        <div className="text-sm font-medium flex items-center justify-center gap-1">
+                          {selectedTechnician.isMobileVerified ? (
+                            <>
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                              <span className="text-green-600">Verified</span>
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="h-4 w-4 text-red-600" />
+                              <span className="text-red-600">Pending</span>
+                            </>
+                          )}
+                        </div>
                       </div>
                       <div className="p-4 bg-gray-50/50 rounded-xl border border-gray-200/50 text-center">
                         <div className="text-xs text-gray-500 mb-1">Email</div>
-                        <div className="text-sm font-medium">{selectedTechnician.isEmailVerified ? "✅ Verified" : "❌ Pending"}</div>
+                        <div className="text-sm font-medium flex items-center justify-center gap-1">
+                          {selectedTechnician.isEmailVerified ? (
+                            <>
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                              <span className="text-green-600">Verified</span>
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="h-4 w-4 text-red-600" />
+                              <span className="text-red-600">Pending</span>
+                            </>
+                          )}
+                        </div>
                       </div>
                       <div className="p-4 bg-gray-50/50 rounded-xl border border-gray-200/50 text-center">
                         <div className="text-xs text-gray-500 mb-1">Registered</div>
@@ -937,17 +961,19 @@ const TechnicianRequest = () => {
                     <>
                       <button 
                         onClick={() => handleApprove(selectedTechnician._id)} 
-                        className="px-6 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl transition-all duration-300 hover:scale-105"
+                        className="px-6 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl transition-all duration-300 hover:scale-105 flex items-center gap-2"
                       >
-                        Approve
+                        <CheckCircle className="h-4 w-4" />
+                        <span>Approve</span>
                       </button>
                       <button
                         onClick={() => {
                           setShowDetailsModal(false);
                           setShowRejectModal(selectedTechnician._id);
                         }}
-                        className="px-6 py-2 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white rounded-xl transition-all duration-300 hover:scale-105"
+                        className="px-6 py-2 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white rounded-xl transition-all duration-300 hover:scale-105 flex items-center gap-2"
                       >
+                        <XCircle className="h-4 w-4" />
                         Reject
                       </button>
                     </>

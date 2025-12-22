@@ -32,6 +32,9 @@ export default function AdminSubscriptions() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [hoveredCard, setHoveredCard] = useState(null);
+  
+  // Dropdown state
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -110,7 +113,7 @@ export default function AdminSubscriptions() {
   // Predefined package templates for quick creation
   const packageTemplates = [
     {
-      name: "Classic Active",
+      name: "Essential",
       coins: 20,
       price: 249,
       description:
@@ -120,7 +123,7 @@ export default function AdminSubscriptions() {
       badge: "Popular",
     },
     {
-      name: "Premium Active",
+      name: "Advanced",
       coins: 75,
       price: 1199,
       description:
@@ -130,7 +133,7 @@ export default function AdminSubscriptions() {
       badge: "Recommended",
     },
     {
-      name: "Enterprise Active",
+      name: "Ultimate",
       coins: 180,
       price: 2699,
       description:
@@ -445,7 +448,7 @@ export default function AdminSubscriptions() {
         </div>
 
         {/* Actions Bar */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-6 mb-8">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-6 mb-8 relative z-30">
           <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
             <div className="relative flex-1 w-full sm:max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -459,15 +462,73 @@ export default function AdminSubscriptions() {
             </div>
 
             <div className="flex gap-3 w-full sm:w-auto items-center">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/50 backdrop-blur-sm"
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
+              <div className="relative z-50">
+                <button
+                  type="button"
+                  onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                  onBlur={() => setTimeout(() => setShowStatusDropdown(false), 200)}
+                  className="w-full sm:w-44 px-4 py-3 border border-gray-300 rounded-xl bg-white/50 backdrop-blur-sm flex items-center justify-between space-x-2 hover:border-blue-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                >
+                  <div className="flex items-center space-x-2">
+                    <Filter className="h-4 w-4 text-gray-600" />
+                    <span className="text-sm">
+                      {statusFilter === "all" && "All Status"}
+                      {statusFilter === "active" && "Active"}
+                      {statusFilter === "inactive" && "Inactive"}
+                    </span>
+                  </div>
+                  {showStatusDropdown ? (
+                    <ChevronUp className="h-4 w-4 text-gray-600" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-gray-600" />
+                  )}
+                </button>
+
+                {showStatusDropdown && (
+                  <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200/50 p-2 z-[100] min-w-[200px]">
+                    <div
+                      className={`px-4 py-2 rounded-lg cursor-pointer transition-colors duration-200 ${
+                        statusFilter === "all"
+                          ? "bg-blue-100 text-blue-900 font-medium"
+                          : "hover:bg-blue-50 text-gray-700"
+                      }`}
+                      onMouseDown={() => {
+                        setStatusFilter("all");
+                        setShowStatusDropdown(false);
+                      }}
+                    >
+                      All Status
+                    </div>
+                    <div
+                      className={`px-4 py-2 rounded-lg cursor-pointer transition-colors duration-200 ${
+                        statusFilter === "active"
+                          ? "bg-blue-100 text-blue-900 font-medium"
+                          : "hover:bg-blue-50 text-gray-700"
+                      }`}
+                      onMouseDown={() => {
+                        setStatusFilter("active");
+                        setShowStatusDropdown(false);
+                      }}
+                    >
+                      Active
+                    </div>
+                    <div
+                      className={`px-4 py-2 rounded-lg cursor-pointer transition-colors duration-200 ${
+                        statusFilter === "inactive"
+                          ? "bg-blue-100 text-blue-900 font-medium"
+                          : "hover:bg-blue-50 text-gray-700"
+                      }`}
+                      onMouseDown={() => {
+                        setStatusFilter("inactive");
+                        setShowStatusDropdown(false);
+                      }}
+                    >
+                      Inactive
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <button
                 onClick={handleCreatePackage}
                 className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl flex items-center space-x-2 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl"
@@ -819,7 +880,6 @@ export default function AdminSubscriptions() {
           </div>
         )}
       </div>
-
       {/* Add custom animations */}
       <style>{`
         @keyframes fadeIn {

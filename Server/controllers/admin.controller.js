@@ -227,7 +227,7 @@ export const approveTechnician = async (req, res) => {
             
             <div style="text-align: center; margin: 25px 0;">
               <a href="${
-                process.env.FRONTEND_URL || "http://localhost:5174"
+                process.env.FRONTEND_URL || "http://localhost:5175"
               }/login" 
                  style="background-color: #4F46E5; color: white; padding: 12px 30px; 
                         text-decoration: none; border-radius: 6px; display: inline-block;">

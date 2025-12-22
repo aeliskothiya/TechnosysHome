@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useRef } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   Plus,
   Edit,
@@ -48,10 +48,14 @@ export const AdminCategories = () => {
   // Sub-Service Categories State
   const [subServiceSearchTerm, setSubServiceSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
-  const [categorySearchTerm, setCategorySearchTerm] = useState("");
-  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [subServiceStatusFilter, setSubServiceStatusFilter] = useState("all");
   const [showSubServiceFilters, setShowSubServiceFilters] = useState(false);
+
+  // Dropdown states
+  const [showServiceStatusDropdown, setShowServiceStatusDropdown] = useState(false);
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [showSubStatusDropdown, setShowSubStatusDropdown] = useState(false);
+  const [showParentCategoryDropdown, setShowParentCategoryDropdown] = useState(false);
 
   // Pagination for sub-service categories
   const [currentSubPage, setCurrentSubPage] = useState(1);
@@ -91,7 +95,6 @@ export const AdminCategories = () => {
   const [dragOverArea, setDragOverArea] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [togglingId, setTogglingId] = useState(null);
-  const categoryDropdownRef = useRef(null);
   const [categoryValidated, setCategoryValidated] = useState(false);
   const [subCategoryValidated, setSubCategoryValidated] = useState(false);
 
@@ -100,20 +103,7 @@ export const AdminCategories = () => {
     fetchAllData();
   }, []);
 
-  // Close category dropdown when clicking outside
-  useEffect(() => {
-    const onDocClick = (e) => {
-      if (
-        showCategoryDropdown &&
-        categoryDropdownRef.current &&
-        !categoryDropdownRef.current.contains(e.target)
-      ) {
-        setShowCategoryDropdown(false);
-      }
-    };
-    document.addEventListener("click", onDocClick);
-    return () => document.removeEventListener("click", onDocClick);
-  }, [showCategoryDropdown]);
+  // No outside-click handler needed (native selects)
 
   const fetchAllData = async () => {
     try {
@@ -845,7 +835,7 @@ export const AdminCategories = () => {
             </div>
 
             {/* Service Categories Actions */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-6 mb-8">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-6 mb-8 relative z-30">
               <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
                 <div className="relative flex-1 w-full sm:max-w-md">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -859,19 +849,76 @@ export const AdminCategories = () => {
                 </div>
 
                 <div className="flex gap-3 w-full sm:w-auto items-center">
-                  <select
-                    value={serviceStatusFilter}
-                    onChange={(e) => setServiceStatusFilter(e.target.value)}
-                    className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/50 backdrop-blur-sm"
-                  >
-                    <option value="all">All Status</option>
-                    <option value="active">Active Only</option>
-                    <option value="inactive">Inactive Only</option>
-                  </select>
+                  <div className="relative z-50">
+                    <button
+                      type="button"
+                      onClick={() => setShowServiceStatusDropdown(!showServiceStatusDropdown)}
+                      onBlur={() => setTimeout(() => setShowServiceStatusDropdown(false), 200)}
+                      className="w-full sm:w-44 px-4 py-3 border border-gray-300 rounded-xl bg-white/50 backdrop-blur-sm flex items-center justify-between space-x-2 hover:border-blue-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <Filter className="h-4 w-4 text-gray-600" />
+                        <span className="text-sm">
+                          {serviceStatusFilter === "all" && "All Status"}
+                          {serviceStatusFilter === "active" && "Active Only"}
+                          {serviceStatusFilter === "inactive" && "Inactive Only"}
+                        </span>
+                      </div>
+                      {showServiceStatusDropdown ? (
+                        <ChevronUp className="h-4 w-4 text-gray-600" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-gray-600" />
+                      )}
+                    </button>
+
+                    {showServiceStatusDropdown && (
+                      <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200/50 p-2 z-[100] min-w-[200px]">
+                        <div
+                          className={`px-4 py-2 rounded-lg cursor-pointer transition-colors duration-200 ${
+                            serviceStatusFilter === "all"
+                              ? "bg-blue-100 text-blue-900 font-medium"
+                              : "hover:bg-blue-50 text-gray-700"
+                          }`}
+                          onMouseDown={() => {
+                            setServiceStatusFilter("all");
+                            setShowServiceStatusDropdown(false);
+                          }}
+                        >
+                          All Status
+                        </div>
+                        <div
+                          className={`px-4 py-2 rounded-lg cursor-pointer transition-colors duration-200 ${
+                            serviceStatusFilter === "active"
+                              ? "bg-blue-100 text-blue-900 font-medium"
+                              : "hover:bg-blue-50 text-gray-700"
+                          }`}
+                          onMouseDown={() => {
+                            setServiceStatusFilter("active");
+                            setShowServiceStatusDropdown(false);
+                          }}
+                        >
+                          Active Only
+                        </div>
+                        <div
+                          className={`px-4 py-2 rounded-lg cursor-pointer transition-colors duration-200 ${
+                            serviceStatusFilter === "inactive"
+                              ? "bg-blue-100 text-blue-900 font-medium"
+                              : "hover:bg-blue-50 text-gray-700"
+                          }`}
+                          onMouseDown={() => {
+                            setServiceStatusFilter("inactive");
+                            setShowServiceStatusDropdown(false);
+                          }}
+                        >
+                          Inactive Only
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
                   <button
                     onClick={handleCreateCategory}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl flex items-center space-x-2 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-3 rounded-xl flex items-center space-x-2 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl min-w-[200px]"
                   >
                     <Plus className="h-5 w-5" />
                     <span className="font-medium">Add Category</span>
@@ -895,7 +942,7 @@ export const AdminCategories = () => {
                   </p>
                   <button
                     onClick={handleCreateCategory}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl flex items-center space-x-2 mx-auto transition-all duration-300 hover:scale-105 shadow-lg"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-3 rounded-xl flex items-center space-x-2 mx-auto transition-all duration-300 hover:scale-105 shadow-lg min-w-[200px]"
                   >
                     <Plus className="h-5 w-5" />
                     <span className="font-medium">Add Category</span>
@@ -1109,61 +1156,62 @@ export const AdminCategories = () => {
                 {/* Filters Row */}
                 {showSubServiceFilters && (
                   <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-gray-200">
-                    {/* Category Filter Dropdown - Searchable */}
-                    <div className="flex-1 relative z-20">
+                    {/* Category Filter */}
+                    <div className="flex-1">
                       <label
                         htmlFor="categoryFilter"
                         className="block text-sm font-medium text-gray-700 mb-2"
                       >
                         Filter by Category
                       </label>
-                      <div className="relative z-20" ref={categoryDropdownRef}>
-                        <input
-                          type="text"
-                          placeholder="Search or select category..."
-                          value={categorySearchTerm}
-                          onChange={(e) => {
-                            setCategorySearchTerm(e.target.value);
-                            setShowCategoryDropdown(true);
-                          }}
-                          onFocus={() => setShowCategoryDropdown(true)}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/50 backdrop-blur-sm relative z-20"
-                        />
+                      <div className="relative z-40">
+                        <button
+                          type="button"
+                          onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                          onBlur={() => setTimeout(() => setShowCategoryDropdown(false), 200)}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/50 backdrop-blur-sm flex items-center justify-between space-x-2 hover:border-blue-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                        >
+                          <span className="text-sm">
+                            {categoryFilter
+                              ? categories.find((c) => c._id === categoryFilter)?.name || "All Categories"
+                              : "All Categories"}
+                          </span>
+                          {showCategoryDropdown ? (
+                            <ChevronUp className="h-4 w-4 text-gray-600" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4 text-gray-600" />
+                          )}
+                        </button>
 
-                        {/* Dropdown Menu */}
                         {showCategoryDropdown && (
-                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto">
+                          <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200/50 p-2 z-[100] max-h-60 overflow-y-auto">
                             <div
-                              onClick={() => {
+                              className={`px-4 py-2 rounded-lg cursor-pointer transition-colors duration-200 ${
+                                categoryFilter === ""
+                                  ? "bg-blue-100 text-blue-900 font-medium"
+                                  : "hover:bg-blue-50 text-gray-700"
+                              }`}
+                              onMouseDown={() => {
                                 setCategoryFilter("");
-                                setCategorySearchTerm("");
                                 setShowCategoryDropdown(false);
                               }}
-                              className="px-4 py-3 hover:bg-blue-50 cursor-pointer text-gray-700 rounded-t-xl"
                             >
                               All Categories
                             </div>
                             {categories
-                              .filter(
-                                (c) =>
-                                  c.isActive &&
-                                  c.name
-                                    .toLowerCase()
-                                    .includes(categorySearchTerm.toLowerCase())
-                              )
+                              .filter((c) => c.isActive)
                               .map((category) => (
                                 <div
                                   key={category._id}
-                                  onClick={() => {
-                                    setCategoryFilter(category._id);
-                                    setCategorySearchTerm(category.name);
-                                    setShowCategoryDropdown(false);
-                                  }}
-                                  className={`px-4 py-3 hover:bg-blue-50 cursor-pointer ${
+                                  className={`px-4 py-2 rounded-lg cursor-pointer transition-colors duration-200 ${
                                     categoryFilter === category._id
                                       ? "bg-blue-100 text-blue-900 font-medium"
-                                      : "text-gray-700"
+                                      : "hover:bg-blue-50 text-gray-700"
                                   }`}
+                                  onMouseDown={() => {
+                                    setCategoryFilter(category._id);
+                                    setShowCategoryDropdown(false);
+                                  }}
                                 >
                                   {category.name}
                                 </div>
@@ -1181,18 +1229,69 @@ export const AdminCategories = () => {
                       >
                         Filter by Status
                       </label>
-                      <select
-                        id="subServiceStatusFilter"
-                        value={subServiceStatusFilter}
-                        onChange={(e) =>
-                          setSubServiceStatusFilter(e.target.value)
-                        }
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/50 backdrop-blur-sm"
-                      >
-                        <option value="all">All Status</option>
-                        <option value="active">Active Only</option>
-                        <option value="inactive">Inactive Only</option>
-                      </select>
+                      <div className="relative z-40">
+                        <button
+                          type="button"
+                          onClick={() => setShowSubStatusDropdown(!showSubStatusDropdown)}
+                          onBlur={() => setTimeout(() => setShowSubStatusDropdown(false), 200)}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/50 backdrop-blur-sm flex items-center justify-between space-x-2 hover:border-blue-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                        >
+                          <span className="text-sm">
+                            {subServiceStatusFilter === "all" && "All Status"}
+                            {subServiceStatusFilter === "active" && "Active Only"}
+                            {subServiceStatusFilter === "inactive" && "Inactive Only"}
+                          </span>
+                          {showSubStatusDropdown ? (
+                            <ChevronUp className="h-4 w-4 text-gray-600" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4 text-gray-600" />
+                          )}
+                        </button>
+
+                        {showSubStatusDropdown && (
+                          <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200/50 p-2 z-[100] min-w-[200px]">
+                            <div
+                              className={`px-4 py-2 rounded-lg cursor-pointer transition-colors duration-200 ${
+                                subServiceStatusFilter === "all"
+                                  ? "bg-blue-100 text-blue-900 font-medium"
+                                  : "hover:bg-blue-50 text-gray-700"
+                              }`}
+                              onMouseDown={() => {
+                                setSubServiceStatusFilter("all");
+                                setShowSubStatusDropdown(false);
+                              }}
+                            >
+                              All Status
+                            </div>
+                            <div
+                              className={`px-4 py-2 rounded-lg cursor-pointer transition-colors duration-200 ${
+                                subServiceStatusFilter === "active"
+                                  ? "bg-blue-100 text-blue-900 font-medium"
+                                  : "hover:bg-blue-50 text-gray-700"
+                              }`}
+                              onMouseDown={() => {
+                                setSubServiceStatusFilter("active");
+                                setShowSubStatusDropdown(false);
+                              }}
+                            >
+                              Active Only
+                            </div>
+                            <div
+                              className={`px-4 py-2 rounded-lg cursor-pointer transition-colors duration-200 ${
+                                subServiceStatusFilter === "inactive"
+                                  ? "bg-blue-100 text-blue-900 font-medium"
+                                  : "hover:bg-blue-50 text-gray-700"
+                              }`}
+                              onMouseDown={() => {
+                                setSubServiceStatusFilter("inactive");
+                                setShowSubStatusDropdown(false);
+                              }}
+                            >
+                              Inactive Only
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1565,38 +1664,84 @@ export const AdminCategories = () => {
                       >
                         Parent Category *
                       </label>
-                      <select
-                        value={subCategoryForm.serviceCategoryId}
-                        onChange={(e) => {
-                          setSubCategoryForm({
-                            ...subCategoryForm,
-                            serviceCategoryId: e.target.value,
-                          });
-                          if (subCategoryValidated) {
-                            setSubCategoryErrors((s) => ({
-                              ...s,
-                              serviceCategoryId: !e.target.value
-                                ? "Please select a parent category"
-                                : "",
-                            }));
-                          }
-                        }}
-                        className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:border-transparent bg-white/50 backdrop-blur-sm transition-all ${
-                          subCategoryErrors.serviceCategoryId
-                            ? "border-red-500 focus:ring-red-500"
-                            : "border-gray-300 focus:ring-blue-500"
-                        }`}
-                        disabled={submitting}
-                      >
-                        <option value="">Select a category</option>
-                        {categories
-                          .filter((c) => c.isActive)
-                          .map((category) => (
-                            <option key={category._id} value={category._id}>
-                              {category.name}
-                            </option>
-                          ))}
-                      </select>
+                      <div className="relative z-40">
+                        <button
+                          type="button"
+                          onClick={() => setShowParentCategoryDropdown(!showParentCategoryDropdown)}
+                          onBlur={() => setTimeout(() => setShowParentCategoryDropdown(false), 200)}
+                          disabled={submitting}
+                          className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:border-transparent bg-white/50 backdrop-blur-sm transition-all flex items-center justify-between ${
+                            subCategoryErrors.serviceCategoryId
+                              ? "border-red-500 focus:ring-red-500"
+                              : "border-gray-300 focus:ring-blue-500"
+                          } ${submitting ? "opacity-50 cursor-not-allowed" : ""}`}
+                        >
+                          <span className={`text-sm ${!subCategoryForm.serviceCategoryId ? "text-gray-500" : ""}`}>
+                            {subCategoryForm.serviceCategoryId
+                              ? categories.find((c) => c._id === subCategoryForm.serviceCategoryId)?.name || "Select a category"
+                              : "Select a category"}
+                          </span>
+                          {showParentCategoryDropdown ? (
+                            <ChevronUp className="h-4 w-4 text-gray-600" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4 text-gray-600" />
+                          )}
+                        </button>
+
+                        {showParentCategoryDropdown && !submitting && (
+                          <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200/50 p-2 z-[100] max-h-60 overflow-y-auto">
+                            <div
+                              className={`px-4 py-2 rounded-lg cursor-pointer transition-colors duration-200 ${
+                                subCategoryForm.serviceCategoryId === ""
+                                  ? "bg-blue-100 text-blue-900 font-medium"
+                                  : "hover:bg-blue-50 text-gray-500"
+                              }`}
+                              onMouseDown={() => {
+                                setSubCategoryForm({
+                                  ...subCategoryForm,
+                                  serviceCategoryId: "",
+                                });
+                                if (subCategoryValidated) {
+                                  setSubCategoryErrors((s) => ({
+                                    ...s,
+                                    serviceCategoryId: "Please select a parent category",
+                                  }));
+                                }
+                                setShowParentCategoryDropdown(false);
+                              }}
+                            >
+                              Select a category
+                            </div>
+                            {categories
+                              .filter((c) => c.isActive)
+                              .map((category) => (
+                                <div
+                                  key={category._id}
+                                  className={`px-4 py-2 rounded-lg cursor-pointer transition-colors duration-200 ${
+                                    subCategoryForm.serviceCategoryId === category._id
+                                      ? "bg-blue-100 text-blue-900 font-medium"
+                                      : "hover:bg-blue-50 text-gray-700"
+                                  }`}
+                                  onMouseDown={() => {
+                                    setSubCategoryForm({
+                                      ...subCategoryForm,
+                                      serviceCategoryId: category._id,
+                                    });
+                                    if (subCategoryValidated) {
+                                      setSubCategoryErrors((s) => ({
+                                        ...s,
+                                        serviceCategoryId: "",
+                                      }));
+                                    }
+                                    setShowParentCategoryDropdown(false);
+                                  }}
+                                >
+                                  {category.name}
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                      </div>
                       {subCategoryErrors.serviceCategoryId && (
                         <p className="text-sm text-red-600 mt-2 flex items-center space-x-1">
                           <span>●</span>

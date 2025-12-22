@@ -281,13 +281,7 @@ function AdminCustomerList() {
                 {/* Dropdown */}
                 {showStatusDropdown && (
                   <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200/50 p-3 z-50 min-w-48">
-                    <input
-                      type="text"
-                      value={statusSearch}
-                      onChange={(e) => setStatusSearch(e.target.value)}
-                      placeholder="Search status..."
-                      className="w-full px-3 py-2 mb-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
+                    
                     <div className="space-y-1 max-h-48 overflow-y-auto">
                       {statusOptions
                         .filter(option =>

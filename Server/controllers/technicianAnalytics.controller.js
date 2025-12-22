@@ -626,13 +626,29 @@ export const getBookingStatus = async (req, res) => {
 export const getRevenueByService = async (req, res) => {
   try {
     const technicianId = new mongoose.Types.ObjectId(req.userId);
+    const period = req.query.period || 'weekly'; // Default to weekly
+
+    // Calculate date range based on period
+    const now = new Date();
+    let matchCondition = {
+      TechnicianID: technicianId,
+      Status: 'Completed'
+    };
+    
+    if (period === 'weekly') {
+      const startDate = new Date(now);
+      startDate.setDate(now.getDate() - 7);
+      matchCondition.createdAt = { $gte: startDate };
+    } else if (period === 'monthly') {
+      const startDate = new Date(now);
+      startDate.setDate(now.getDate() - 30);
+      matchCondition.createdAt = { $gte: startDate };
+    }
+    // For 'alltime', no date filter is added
 
     const revenueData = await Booking.aggregate([
       {
-        $match: {
-          TechnicianID: technicianId,
-          Status: 'Completed'
-        }
+        $match: matchCondition
       },
       {
         $lookup: {
@@ -663,7 +679,7 @@ export const getRevenueByService = async (req, res) => {
       { $unwind: { path: '$payment', preserveNullAndEmptyArrays: true } },
       {
         $group: {
-          _id: { $ifNull: ['$category.name', 'Uncategorized'] },
+          _id: { $ifNull: ['$subService.name', 'Uncategorized'] },
           revenue: { 
             $sum: { 
               $cond: [
