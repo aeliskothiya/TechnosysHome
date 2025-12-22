@@ -20,6 +20,7 @@ const SENDER_NAME = process.env.SENDER_NAME || "Technosys";
 const SENDER_EMAIL = process.env.SENDER_EMAIL || process.env.SMTP_USER || "no-reply@technosys.local";
 const REPLY_TO = process.env.REPLY_TO || SENDER_EMAIL;
 const FRONTEND_URL = (process.env.FRONTEND_URL || process.env.CLIENT_URL || "http://localhost:5176").replace(/\/$/, "");
+const EMAIL_DEV_MODE = String(process.env.EMAIL_DEV_MODE || "false").toLowerCase() === "true";
 
 //date = 12-10-25
 export const register = async (req, res) => {
@@ -759,7 +760,18 @@ export const sendEmailOtp = async (req, res) => {
       { upsert: true, new: true }
     );
 
-    // Send Email
+    // In dev mode, don't send actual email
+    if (EMAIL_DEV_MODE) {
+      console.log("Email OTP (Dev Mode):", { email, otp });
+      return res.status(200).json({
+        success: true,
+        message: "OTP sent successfully (Dev Mode - Email skipped)",
+        otp,
+        email,
+      });
+    }
+
+    // Send Email via SMTP
     await transporter.sendMail({
       from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
       replyTo: REPLY_TO,
@@ -796,9 +808,10 @@ export const sendEmailOtp = async (req, res) => {
     });
   } catch (error) {
     console.error("Send email OTP error:", error);
-    return res
-      .status(500)
-      .json({ success: false, message: "Internal server error" });
+    const message = error && error.code === 'ETIMEDOUT'
+      ? "Email service connection timed out. Please try again later."
+      : "Failed to send verification email";
+    return res.status(500).json({ success: false, message });
   }
 };
 
@@ -901,10 +914,18 @@ export const sendResetOtp = async (req, res) => {
       `,
     };
 
+    if (EMAIL_DEV_MODE) {
+      console.log("Reset Email OTP (Dev Mode):", { email, otp });
+      return res.json({ success: true, message: "OTP generated (Dev Mode - Email skipped)", otp });
+    }
+
     await transporter.sendMail(mailOptions);
     return res.json({ success: true, message: "OTP sent to your Email" });
   } catch (error) {
-    return res.json({ success: false, message: error.message });
+    const message = error && error.code === 'ETIMEDOUT'
+      ? "Email service connection timed out. Please try again later."
+      : (error.message || "Failed to send email");
+    return res.json({ success: false, message });
   }
 };
 
