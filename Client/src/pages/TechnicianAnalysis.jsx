@@ -91,7 +91,7 @@ export default function TechnicianAnalysis() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const API_URL = backendUrl || import.meta.env.VITE_BACKEND_URL || 'http://localhost:6000';
+  const API_URL = backendUrl || import.meta.env.VITE_BACKEND_URL || 'https://technosyshome.onrender.com';
 
   // Pagination for transactions
   const transactionTotalPages = Math.ceil(recentTransactions.length / transactionPageSize) || 1;

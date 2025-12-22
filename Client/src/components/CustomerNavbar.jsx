@@ -13,7 +13,7 @@ import axios from "axios";
 import { AppContext } from "../context/AppContext";
 import { assets } from "../assets/assets";
 
-const backendUrl = "http://localhost:6000";
+const backendUrl = "https://technosyshome.onrender.com";
 
 const CustomerNavbar = () => {
   const navigate = useNavigate();

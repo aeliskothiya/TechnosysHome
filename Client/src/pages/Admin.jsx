@@ -74,7 +74,7 @@ export const Admin = () => {
   const [error, setError] = useState(null);
 
   // API base URL
-  const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:6000';
+  const API_URL = import.meta.env.VITE_BACKEND_URL || 'https://technosyshome.onrender.com';
 
   // Fetch all analytics data
   const fetchAnalytics = async () => {
