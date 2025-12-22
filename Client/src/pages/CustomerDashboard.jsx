@@ -295,20 +295,20 @@ const CustomerDashboard = () => {
               <SwiperSlide key={i}>
                 <div
                   className="
-                    w-full h-72 sm:h-80 md:h-[500px]
+                    w-full h-96 sm:h-[450px] md:h-[500px]
                     bg-center bg-cover flex items-center relative
                   "
                   style={{ backgroundImage: `url(${src})` }}
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-black/30" />
-                  <div className="relative z-10 px-8 md:px-16 py-12 text-left max-w-2xl">
-                    <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-white mb-4 leading-tight">
+                  <div className="relative z-10 px-4 sm:px-8 md:px-16 py-6 sm:py-12 text-left max-w-2xl">
+                    <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-3 sm:mb-4 leading-tight">
                       Professional Home Services
                     </h1>
-                    <p className="text-white/90 text-lg mb-8 max-w-xl">
+                    <p className="text-white/90 text-sm sm:text-base md:text-lg mb-4 sm:mb-8 max-w-xl">
                       Reliable, affordable, and professional technicians at your doorstep.
                     </p>
-                    <div className="flex flex-wrap gap-4">
+                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                       <button
                         onClick={() =>
                           isLoggedIn
@@ -316,9 +316,9 @@ const CustomerDashboard = () => {
                             : navigate("/login-customer")
                         }
                         className="
-                          bg-white text-sky-700 py-3 px-8 rounded-full font-semibold shadow-xl
+                          bg-white text-sky-700 py-2.5 sm:py-3 px-6 sm:px-8 rounded-full font-semibold shadow-xl
                           hover:scale-[1.02] hover:shadow-2xl transition-all duration-300
-                          flex items-center gap-2
+                          flex items-center justify-center gap-2 text-sm sm:text-base
                         "
                       >
                         {isLoggedIn ? "Book Now" : "Get Started"}
@@ -327,8 +327,8 @@ const CustomerDashboard = () => {
                       <button
                         onClick={() => categoryRef.current?.scrollIntoView({ behavior: 'smooth' })}
                         className="
-                          border-2 border-white text-white py-3 px-6 rounded-full font-medium
-                          hover:bg-white/10 transition-all duration-300
+                          border-2 border-white text-white py-2.5 sm:py-3 px-6 rounded-full font-medium
+                          hover:bg-white/10 transition-all duration-300 text-sm sm:text-base
                         "
                       >
                         Browse Services
