@@ -145,11 +145,11 @@ export default function ChatWindow({ messages, currentUserId, onLoadMore, hasMor
                       {m.Attachments.map((a, idx) => (
                         <img 
                           key={idx} 
-                          src={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000'}/${a.path}`} 
+                          src={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:6000'}/${a.path}`} 
                           alt={a.originalName}
                           className="rounded-lg object-cover cursor-pointer hover:opacity-90 transition"
                           style={{ width: '100%', height: m.Attachments.length === 1 ? 'auto' : '140px', maxHeight: '300px' }}
-                          onClick={() => window.open(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000'}/${a.path}`, '_blank')}
+                          onClick={() => window.open(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:6000'}/${a.path}`, '_blank')}
                         />
                       ))}
                     </div>

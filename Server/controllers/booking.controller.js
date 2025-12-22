@@ -1366,7 +1366,7 @@ async function sendLowBalanceEmail({ email, name, balance }) {
   const SENDER_NAME = process.env.SENDER_NAME || 'Technosys';
   const SENDER_EMAIL = process.env.SENDER_EMAIL || process.env.SMTP_USER || 'no-reply@technosys.local';
   const REPLY_TO = process.env.REPLY_TO || SENDER_EMAIL;
-  const subscriptionUrl = process.env.SUBSCRIPTION_URL || 'http://localhost:5175/technician/subscription';
+  const subscriptionUrl = process.env.SUBSCRIPTION_URL || 'http://localhost:5176/technician/subscription';
 
   const safeName = name || 'Technician';
   const balanceDisplay = `₹${(Number(balance) || 0).toFixed(2)}`;
@@ -1801,7 +1801,7 @@ export async function completeService(req, res) {
         const SENDER_NAME = process.env.SENDER_NAME || 'Technosys';
         const SENDER_EMAIL = process.env.SENDER_EMAIL || process.env.SMTP_USER || 'no-reply@technosys.local';
         const REPLY_TO = process.env.REPLY_TO || SENDER_EMAIL;
-        const feedbackUrl = process.env.CUSTOMER_FEEDBACK_URL || 'http://localhost:5175/customer/bookings';
+        const feedbackUrl = process.env.CUSTOMER_FEEDBACK_URL || 'http://localhost:5176/customer/bookings';
 
         const serviceName = booking.SubCategoryID?.name || 'Service';
         const technicianName = booking.TechnicianID?.Name || 'Technician';

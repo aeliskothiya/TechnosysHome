@@ -6,7 +6,7 @@ import { Star, ArrowLeft, Calendar, ChevronLeft, ChevronRight, ChevronDown } fro
 import { toast } from "react-toastify";
 import { AppContext } from "../context/AppContext";
 
-const backendUrl = "http://localhost:4000";
+const backendUrl = "http://localhost:6000";
 
 const CustomerServiceDetails = () => {
   const { id } = useParams(); // service id

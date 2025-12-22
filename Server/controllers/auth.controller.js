@@ -19,7 +19,7 @@ import { processUploadedImage, deleteImageFile } from "../utils/imageUtils.js";
 const SENDER_NAME = process.env.SENDER_NAME || "Technosys";
 const SENDER_EMAIL = process.env.SENDER_EMAIL || process.env.SMTP_USER || "no-reply@technosys.local";
 const REPLY_TO = process.env.REPLY_TO || SENDER_EMAIL;
-const FRONTEND_URL = (process.env.FRONTEND_URL || process.env.CLIENT_URL || "http://localhost:5175").replace(/\/$/, "");
+const FRONTEND_URL = (process.env.FRONTEND_URL || process.env.CLIENT_URL || "http://localhost:5176").replace(/\/$/, "");
 
 //date = 12-10-25
 export const register = async (req, res) => {
