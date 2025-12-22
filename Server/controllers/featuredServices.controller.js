@@ -52,7 +52,7 @@ export const getFeaturedServices = async (req, res) => {
 
     res.json({
       success: true,
-      data: featuredServices
+      services: featuredServices
     });
   } catch (error) {
     console.error("Get featured services error:", error);
