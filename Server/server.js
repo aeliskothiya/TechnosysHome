@@ -34,6 +34,7 @@ import analyticsRoutes from "./routes/analytics.route.js";
 import technicianAnalyticsRoutes from "./routes/technicianAnalytics.route.js";
 import thresholdsRouter from "./routes/thresholds.route.js";
 import chatRoutes from "./routes/chat.route.js";
+import featuredServicesRoutes from "./routes/featuredServices.route.js";
 import { startAutoCancelScheduler } from "./controllers/booking.controller.js";
 
 const app = express();
@@ -164,6 +165,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/technician-analytics', technicianAnalyticsRoutes);
 app.use('/api/thresholds', thresholdsRouter);
 app.use('/api/chat', chatRoutes);
+app.use('/api/featured-services', featuredServicesRoutes);
 const server = app.listen(port, () => console.log(`Server started on PORT:${port}`));
 
 // Initialize realtime (Socket.IO)

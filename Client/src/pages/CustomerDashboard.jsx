@@ -49,6 +49,7 @@ const CustomerDashboard = () => {
   const [categories, setCategories] = useState([]);
   const [subCategories, setSubCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [featuredServices, setFeaturedServices] = useState([]);
 
   // Search + suggestions
   const [searchQuery, setSearchQuery] = useState("");
@@ -73,6 +74,21 @@ const CustomerDashboard = () => {
       }
     };
     fetchCategories();
+  }, []);
+
+  // Fetch featured services
+  useEffect(() => {
+    const fetchFeaturedServices = async () => {
+      try {
+        const { data } = await axios.get(
+          `${backendUrl}/api/featured-services?limit=10`
+        );
+        setFeaturedServices(data.services || []);
+      } catch (err) {
+        console.error("Fetch featured services error:", err);
+      }
+    };
+    fetchFeaturedServices();
   }, []);
 
   // Fetch subcategories
@@ -597,32 +613,74 @@ const CustomerDashboard = () => {
             className="!pb-12"
             spaceBetween={24}
           >
-            {bottomBanners.map((src, i) => (
-              <SwiperSlide key={i}>
-                <div
-                  className="
-                    h-64 bg-cover bg-center rounded-2xl overflow-hidden relative
-                    shadow-lg hover:shadow-2xl transition-shadow duration-300
-                    group cursor-pointer
-                  "
-                  style={{ backgroundImage: `url(${src})` }}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-                  <div className="absolute inset-0 p-6 flex flex-col justify-end">
-                    <div className="text-white transform group-hover:-translate-y-2 transition-transform duration-300">
-                      <div className="text-xl font-bold mb-2">Professional Service</div>
-                      <div className="text-white/90 text-sm mb-4">Book now and get 20% off</div>
-                      <button className="
-                        bg-white text-gray-900 py-2 px-4 rounded-lg text-sm font-semibold
-                        hover:bg-gray-100 transition-colors
-                      ">
-                        Book Service
-                      </button>
+            {featuredServices.length > 0 ? (
+              featuredServices.map((service) => (
+                <SwiperSlide key={service._id}>
+                  <div
+                    className="
+                      h-64 bg-cover bg-center rounded-2xl overflow-hidden relative
+                      shadow-lg hover:shadow-2xl transition-shadow duration-300
+                      group cursor-pointer
+                    "
+                    style={{ 
+                      backgroundImage: `url(${backendUrl}${service.image})`,
+                      backgroundColor: '#f3f4f6'
+                    }}
+                    onClick={() => {
+                      setSelectedCategory(service.serviceCategoryId);
+                      fetchSubCategories(service.serviceCategoryId._id);
+                      categoryRef.current?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                    <div className="absolute inset-0 p-6 flex flex-col justify-end">
+                      <div className="text-white transform group-hover:-translate-y-2 transition-transform duration-300">
+                        <div className="text-xl font-bold mb-2">{service.name}</div>
+                        <div className="text-white/90 text-sm mb-1">
+                          {service.serviceCategoryId?.name || 'Service'}
+                        </div>
+                        <div className="text-white/90 text-sm mb-4">
+                          ₹{service.price} • {service.bookingCount} bookings
+                        </div>
+                        <button className="
+                          bg-white text-gray-900 py-2 px-4 rounded-lg text-sm font-semibold
+                          hover:bg-gray-100 transition-colors
+                        ">
+                          Book Now
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </SwiperSlide>
-            ))}
+                </SwiperSlide>
+              ))
+            ) : (
+              bottomBanners.map((src, i) => (
+                <SwiperSlide key={i}>
+                  <div
+                    className="
+                      h-64 bg-cover bg-center rounded-2xl overflow-hidden relative
+                      shadow-lg hover:shadow-2xl transition-shadow duration-300
+                      group cursor-pointer
+                    "
+                    style={{ backgroundImage: `url(${src})` }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                    <div className="absolute inset-0 p-6 flex flex-col justify-end">
+                      <div className="text-white transform group-hover:-translate-y-2 transition-transform duration-300">
+                        <div className="text-xl font-bold mb-2">Professional Service</div>
+                        <div className="text-white/90 text-sm mb-4">Book now and get 20% off</div>
+                        <button className="
+                          bg-white text-gray-900 py-2 px-4 rounded-lg text-sm font-semibold
+                          hover:bg-gray-100 transition-colors
+                        ">
+                          Book Service
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </SwiperSlide>
+              ))
+            )}
           </Swiper>
         </section>
 
