@@ -45,7 +45,11 @@ const __dirname = path.dirname(__filename);
 
 connectdb();
 
-const allowedOrigins = ['http://localhost:5173', 'http://localhost:5176'];
+// Allow configuring CORS origins from env for deployed frontends
+const defaultOrigins = ['http://localhost:5173', 'http://localhost:5176'];
+const allowedOrigins = (process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
+  : defaultOrigins);
 
 // Sanitize data for mongoose injection
 // app.use(mongoSanitize());
@@ -60,7 +64,7 @@ if (process.env.NODE_ENV === "development") {
 }
 // Set Security Headers with configured CSP
 // Build connectSrc for CSP from allowedOrigins + backend (HTTP + WS)
-const wsAllowed = allowedOrigins.map(o => o.replace('http://', 'ws://'));
+const wsAllowed = allowedOrigins.map(o => o.replace('http://', 'ws://').replace('https://', 'wss://'));
 const cspConnectSrc = [
   "'self'",
   `http://localhost:${port}`,

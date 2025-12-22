@@ -614,6 +614,9 @@ const initTwilioClient = () => {
 };
 
 const twilioClient = initTwilioClient();
+// Allow forcing OTP dev mode independently of NODE_ENV so we can
+// keep production cookies while skipping real SMS sends.
+const OTP_DEV_MODE = String(process.env.OTP_DEV_MODE || "false").toLowerCase() === "true";
 
 
 
@@ -645,7 +648,7 @@ export const sendMobileOtp = async (req, res) => {
       { upsert: true, new: true }
     );
 
-    if (process.env.NODE_ENV === "production") {
+    if (!OTP_DEV_MODE) {
       // Validate Twilio configuration
       if (!twilioClient) {
         console.error('❌ Twilio client not initialized - check credentials');
@@ -676,7 +679,7 @@ export const sendMobileOtp = async (req, res) => {
       // Dev mode → return OTP
       return res.status(200).json({
         success: true,
-        message: "OTP sent successfully (Dev Mode)",
+        message: "OTP sent successfully (Dev Mode - SMS skipped)",
         otp,
         mobile,
       });
@@ -986,7 +989,7 @@ export const sendCustomerMobileOtp = async (req, res) => {
       { upsert: true, new: true }
     );
 
-    if (process.env.NODE_ENV === "production") {
+    if (!OTP_DEV_MODE) {
       // Validate Twilio configuration
       if (!twilioClient) {
         console.error('❌ Twilio client not initialized - check credentials');
@@ -1020,7 +1023,7 @@ export const sendCustomerMobileOtp = async (req, res) => {
       console.log("Customer OTP (Dev Mode):", otp);
       return res.status(200).json({
         success: true,
-        message: "OTP sent successfully (Dev Mode)",
+        message: "OTP sent successfully (Dev Mode - SMS skipped)",
         otp,
         mobile,
       });
