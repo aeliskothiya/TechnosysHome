@@ -597,11 +597,23 @@ export const logout = async (req, res) => {
   }
 };
 
-// Initialize Twilio client
-const twilioClient = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
+// Initialize Twilio client with validation
+const initTwilioClient = () => {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  
+  if (!accountSid || !authToken) {
+    console.error('❌ TWILIO CREDENTIALS MISSING:', {
+      accountSid: accountSid ? 'SET' : 'MISSING',
+      authToken: authToken ? 'SET' : 'MISSING'
+    });
+    return null;
+  }
+  
+  return twilio(accountSid, authToken);
+};
+
+const twilioClient = initTwilioClient();
 
 
 
@@ -634,6 +646,23 @@ export const sendMobileOtp = async (req, res) => {
     );
 
     if (process.env.NODE_ENV === "production") {
+      // Validate Twilio configuration
+      if (!twilioClient) {
+        console.error('❌ Twilio client not initialized - check credentials');
+        return res.status(500).json({
+          success: false,
+          message: "SMS service is not configured. Please contact support."
+        });
+      }
+
+      if (!process.env.TWILIO_PHONE_NUMBER) {
+        console.error('❌ TWILIO_PHONE_NUMBER is not set');
+        return res.status(500).json({
+          success: false,
+          message: "SMS service is not configured properly."
+        });
+      }
+
       // Twilio SMS
       await twilioClient.messages.create({
         body: `Your Technosys verification code is: ${otp}.This OTP is valid for 2 minutes.`,
@@ -958,6 +987,23 @@ export const sendCustomerMobileOtp = async (req, res) => {
     );
 
     if (process.env.NODE_ENV === "production") {
+      // Validate Twilio configuration
+      if (!twilioClient) {
+        console.error('❌ Twilio client not initialized - check credentials');
+        return res.status(500).json({
+          success: false,
+          message: "SMS service is not configured. Please contact support."
+        });
+      }
+
+      if (!process.env.TWILIO_PHONE_NUMBER) {
+        console.error('❌ TWILIO_PHONE_NUMBER is not set');
+        return res.status(500).json({
+          success: false,
+          message: "SMS service is not configured properly."
+        });
+      }
+
       // Twilio SMS
       await twilioClient.messages.create({
         body: `Your Technosys verification code is: ${otp}`,
