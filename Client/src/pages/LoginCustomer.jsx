@@ -393,6 +393,9 @@ export function LoginCustomer() {
   const [canResendOtp, setCanResendOtp] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
 
+  // Allow OTP auto-fill even on production builds when explicitly enabled for testing
+  const shouldAutofillOtp = (import.meta.env.VITE_SHOW_DEV_OTP === 'true') || (import.meta.env.MODE !== 'production');
+
   // Add this ref for OTP inputs
   const otpInputRefs = useRef([]);
 
@@ -498,8 +501,8 @@ export function LoginCustomer() {
         
         toast.success("OTP sent successfully!");
         
-        // Auto-fill OTP in development mode
-        if (process.env.NODE_ENV !== 'production' && data.otp) {
+        // Auto-fill OTP when allowed
+        if (shouldAutofillOtp && data.otp) {
           setOtp(data.otp);
           toast.info(`OTP auto-filled: ${data.otp}`);
         }
@@ -575,8 +578,8 @@ export function LoginCustomer() {
         setCanResendOtp(false);
         toast.success("OTP resent successfully!");
         
-        // Auto-fill OTP in development mode
-        if (process.env.NODE_ENV !== 'production' && data.otp) {
+        // Auto-fill OTP when allowed
+        if (shouldAutofillOtp && data.otp) {
           setOtp(data.otp);
           toast.info(`OTP auto-filled: ${data.otp}`);
         }
