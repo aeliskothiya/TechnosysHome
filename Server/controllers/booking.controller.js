@@ -1494,6 +1494,7 @@ export async function generateArrivalOTP(req, res) {
               replyTo: REPLY_TO,
               to: email,
               subject: "Your Service Arrival OTP - Technosys",
+              text: `Your Technosys arrival OTP is ${otp}. It is valid for 2 minutes. Share only after the technician arrives.`,
               html: `
                 <!DOCTYPE html>
                 <html>
@@ -1969,6 +1970,7 @@ export async function generateCompletionOTP(req, res) {
             replyTo: REPLY_TO,
             to: email,
             subject: "Your Service Completion OTP - Technosys",
+            text: `Your Technosys completion OTP is ${otp}. Valid for 2 minutes. Share only if the work is completed to your satisfaction.`,
             html: `
               <!DOCTYPE html>
               <html>

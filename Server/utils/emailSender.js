@@ -3,6 +3,7 @@ import transporter from '../config/nodemailer.js';
 // Prefer SendGrid Web API in hosted environments to avoid SMTP egress issues
 let sgMail = null;
 let SENDGRID_API_KEY = null;
+const SENDGRID_VERIFIED_FROM = process.env.SENDGRID_VERIFIED_FROM || '';
 
 const SMTP_HOST = String(process.env.SMTP_HOST || '').toLowerCase();
 const SMTP_USER = String(process.env.SMTP_USER || '').toLowerCase();
@@ -27,19 +28,43 @@ if (SMTP_IS_SENDGRID) {
  * Send email using SendGrid API when available, else fallback to SMTP via nodemailer
  * @param {{from:string, replyTo?:string, to:string|string[], subject:string, html:string, text?:string}} mailOptions
  */
+function parseFrom(fromValue) {
+  if (!fromValue) return { email: '', name: '' };
+  if (typeof fromValue === 'object' && fromValue.email) {
+    return { email: fromValue.email, name: fromValue.name || '' };
+  }
+  const str = String(fromValue);
+  const match = str.match(/^(.*)<\s*([^>]+)\s*>\s*$/);
+  if (match) {
+    const name = match[1].trim().replace(/"/g, '');
+    const email = match[2].trim();
+    return { email, name };
+  }
+  // fallback: if it looks like an email
+  if (str.includes('@')) return { email: str.trim(), name: '' };
+  // last resort use SENDER_EMAIL
+  const fallbackEmail = process.env.SENDER_EMAIL || '';
+  return { email: fallbackEmail, name: str.trim() };
+}
+
 export async function sendEmail(mailOptions) {
-  // Normalize payload
-  const payload = {
-    to: mailOptions.to,
-    from: mailOptions.from,
-    subject: mailOptions.subject,
-    html: mailOptions.html,
-    replyTo: mailOptions.replyTo,
-  };
+  const { email: parsedEmail, name: parsedName } = parseFrom(mailOptions.from);
+  const to = mailOptions.to;
+  const replyTo = mailOptions.replyTo;
+  const subject = mailOptions.subject;
+  const html = mailOptions.html;
 
   // Prefer SendGrid API if configured
   if (sgMail && SENDGRID_API_KEY) {
     try {
+      const fromEmail = SENDGRID_VERIFIED_FROM || parsedEmail;
+      const payload = {
+        to,
+        from: { email: fromEmail, name: parsedName || (process.env.SENDER_NAME || '') },
+        subject,
+        html,
+        replyTo,
+      };
       await sgMail.send(payload);
       return { provider: 'sendgrid', ok: true };
     } catch (apiErr) {
