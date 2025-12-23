@@ -19,6 +19,9 @@ import cron from "node-cron";
 import { refundRazorpayPayment, captureRazorpayPayment } from "../services/payment.service.js";
 import { generateInvoice } from "../services/invoice.service.js";
 
+const EMAIL_DEV_MODE = String(process.env.EMAIL_DEV_MODE || "false").toLowerCase() === "true";
+const SMTP_READY = !!process.env.SMTP_HOST && !!process.env.SMTP_USER && !!process.env.SMTP_PASS;
+
 // Background job: Auto-cancel expired bookings
 const scheduledCancellations = new Map(); // bookingId -> timeoutId
 const scheduledArrivalCancellations = new Map(); // bookingId -> timeoutId for arrival deadline
