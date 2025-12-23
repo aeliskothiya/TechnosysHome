@@ -1,4 +1,4 @@
-import transporter from '../config/nodemailer.js';
+import { sendEmail } from './emailSender.js';
 
 // Simple in-memory queue for failed emails
 const emailQueue = [];
@@ -14,8 +14,8 @@ const RETRY_DELAY = 5000; // 5 seconds
 export async function sendEmailWithRetry(mailOptions, attempt = 1) {
   try {
     console.log(`[Email] Sending email attempt ${attempt}/${MAX_RETRIES}...`);
-    await transporter.sendMail(mailOptions);
-    console.log(`[Email] ✅ Email sent successfully to ${mailOptions.to}`);
+    const result = await sendEmail(mailOptions);
+    console.log(`[Email] ✅ Email sent successfully to ${mailOptions.to} via ${result.provider}`);
     return true;
   } catch (error) {
     console.error(`[Email] ❌ Attempt ${attempt} failed:`, error.message);
