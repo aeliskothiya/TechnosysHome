@@ -71,10 +71,6 @@ export async function sendEmail(mailOptions) {
           clickTracking: { enable: false, enableText: false },
           openTracking: { enable: false },
           subscriptionTracking: { enable: false }
-        },
-        mailSettings: {
-          bypassListManagement: { enable: true },
-          bypassSpamManagement: { enable: true }
         }
       };
       await sgMail.send(payload);
