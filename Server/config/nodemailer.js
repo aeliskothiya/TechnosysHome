@@ -13,11 +13,13 @@ const transporter = nodemailer.createTransport({
     secure, // true for 465, false for 587/STARTTLS
     requireTLS: !secure,
     pool: true,
-    maxConnections: 3,
-    maxMessages: 50,
-    connectionTimeout: 20000,
-    greetingTimeout: 15000,
-    socketTimeout: 30000,
+    maxConnections: 1,
+    maxMessages: 5,
+    rateDelta: 1000,
+    rateLimit: 3,
+    connectionTimeout: 60000,
+    greetingTimeout: 30000,
+    socketTimeout: 60000,
     auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,

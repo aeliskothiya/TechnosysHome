@@ -18,6 +18,7 @@ import transporter from "../config/nodemailer.js";
 import cron from "node-cron";
 import { refundRazorpayPayment, captureRazorpayPayment } from "../services/payment.service.js";
 import { generateInvoice } from "../services/invoice.service.js";
+import { sendEmailWithRetry } from "../utils/emailQueue.js";
 
 const EMAIL_DEV_MODE = String(process.env.EMAIL_DEV_MODE || "false").toLowerCase() === "true";
 const SMTP_READY = !!process.env.SMTP_HOST && !!process.env.SMTP_USER && !!process.env.SMTP_PASS;
@@ -1487,7 +1488,7 @@ export async function generateArrivalOTP(req, res) {
           console.log('[generateArrivalOTP] Skip email (dev mode or SMTP not configured)', { otp });
         } else {
           try {
-            await transporter.sendMail({
+            await sendEmailWithRetry({
               from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
               replyTo: REPLY_TO,
               to: email,
