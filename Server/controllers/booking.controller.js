@@ -1951,7 +1951,7 @@ export async function generateCompletionOTP(req, res) {
       });
     }
 
-    // Send email to customer
+    // Send email to customer (non-blocking with retry)
     try {
       const customer = await Customer.findById(booking.CustomerID).lean();
       const email = customer?.Email;
@@ -1960,106 +1960,111 @@ export async function generateCompletionOTP(req, res) {
         const SENDER_EMAIL = process.env.SENDER_EMAIL || process.env.SMTP_USER || "no-reply@technosys.local";
         const REPLY_TO = process.env.REPLY_TO || SENDER_EMAIL;
 
-        await transporter.sendMail({
-          from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
-          replyTo: REPLY_TO,
-          to: email,
-          subject: "Your Service Completion OTP - Technosys",
-          html: `
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta charset="UTF-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>Service Completion OTP</title>
-            </head>
-            <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6;">
-              <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f3f4f6;">
-                <tr>
-                  <td align="center" style="padding: 40px 20px;">
-                    <table role="presentation" style="width: 100%; max-width: 600px; border-collapse: collapse; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 16px 16px 0 0; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
-                      <!-- Header -->
-                      <tr>
-                        <td style="padding: 40px 30px; text-align: center;">
-                          <div style="display: inline-block; background-color: rgba(255,255,255,0.2); padding: 12px 24px; border-radius: 50px; margin-bottom: 15px;">
-                            <span style="color: #ffffff; font-size: 14px; font-weight: 600; letter-spacing: 1px;">✓ SERVICE COMPLETION</span>
-                          </div>
-                          <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">Service Completion</h1>
-                          <p style="margin: 10px 0 0; color: #d1fae5; font-size: 16px;">Confirm your work is complete</p>
-                        </td>
-                      </tr>
-                    </table>
-                    
-                    <table role="presentation" style="width: 100%; max-width: 600px; border-collapse: collapse; background-color: #ffffff; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
-                      <!-- Body -->
-                      <tr>
-                        <td style="padding: 40px 30px;">
-                          <p style="margin: 0 0 20px; color: #374151; font-size: 16px; line-height: 1.6;">Hello,</p>
-                          <p style="margin: 0 0 30px; color: #374151; font-size: 16px; line-height: 1.6;">Your technician has requested confirmation to mark your service as completed. Please verify that all work has been done to your satisfaction before sharing the OTP below.</p>
-                          
-                          <!-- OTP Box -->
-                          <table role="presentation" style="width: 100%; border-collapse: collapse; background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); border-radius: 12px; border: 3px dashed #10b981; margin: 30px 0;">
-                            <tr>
-                              <td style="padding: 30px; text-align: center;">
-                                <p style="margin: 0 0 15px; color: #6b7280; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Your Completion OTP</p>
-                                <p style="margin: 0; color: #10b981; font-size: 48px; font-weight: 800; letter-spacing: 8px; font-family: 'Courier New', monospace;">${otp}</p>
-                                <p style="margin: 15px 0 0; color: #9ca3af; font-size: 13px;">Valid for 2 minutes</p>
-                              </td>
-                            </tr>
-                          </table>
-                          
-                          <!-- Critical Warning Box -->
-                          <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #fef2f2; border-left: 4px solid #dc2626; border-radius: 8px; margin: 25px 0;">
-                            <tr>
-                              <td style="padding: 20px;">
-                                <p style="margin: 0 0 8px; color: #dc2626; font-size: 14px; font-weight: 700;"><span style="display: inline-block; width: 20px; height: 20px; line-height: 20px; text-align: center; background-color: #dc2626; color: #ffffff; border-radius: 50%; font-size: 12px; font-weight: 900; margin-right: 8px;">!</span>Critical: Read Before Sharing</p>
-                                <p style="margin: 0; color: #991b1b; font-size: 14px; line-height: 1.5; font-weight: 500;">Share this OTP ONLY if your work is complete and you are satisfied with the service. Once shared, the service will be marked as completed and we cannot be held responsible for incomplete or unsatisfactory work.</p>
-                              </td>
-                            </tr>
-                          </table>
-                          
-                          <!-- Checklist Box -->
-                          <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f0fdf4; border-left: 4px solid #10b981; border-radius: 8px; margin: 25px 0;">
-                            <tr>
-                              <td style="padding: 20px;">
-                                <p style="margin: 0 0 12px; color: #166534; font-size: 14px; font-weight: 700;"><span style="display: inline-block; width: 18px; height: 18px; line-height: 18px; text-align: center; background-color: #10b981; color: #ffffff; border-radius: 3px; font-size: 12px; font-weight: 900; margin-right: 8px;">✓</span>Before sharing the OTP, please verify:</p>
-                                <ul style="margin: 0; padding-left: 20px; color: #15803d; font-size: 14px; line-height: 1.8; list-style: none;">
-                                  <li style="padding-left: 0; position: relative;"><span style="color: #10b981; font-weight: 700; margin-right: 8px;">✓</span>All requested work has been completed</li>
-                                  <li style="padding-left: 0; position: relative;"><span style="color: #10b981; font-weight: 700; margin-right: 8px;">✓</span>The quality meets your expectations</li>
-                                  <li style="padding-left: 0; position: relative;"><span style="color: #10b981; font-weight: 700; margin-right: 8px;">✓</span>The work area has been cleaned</li>
-                                  <li style="padding-left: 0; position: relative;"><span style="color: #10b981; font-weight: 700; margin-right: 8px;">✓</span>You have no remaining concerns</li>
-                                </ul>
-                              </td>
-                            </tr>
-                          </table>
-                          
-                          <p style="margin: 25px 0 0; color: #6b7280; font-size: 14px; line-height: 1.6;">If the work is incomplete or you have concerns, please do not share this OTP and contact our support team immediately.</p>
-                        </td>
-                      </tr>
-                    </table>
-                    
-                    <!-- Footer -->
-                    <table role="presentation" style="width: 100%; max-width: 600px; border-collapse: collapse; background-color: #ffffff; border-radius: 0 0 16px 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
-                      <tr>
-                        <td style="padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
-                          <p style="margin: 0 0 10px; color: #9ca3af; font-size: 13px;">© ${new Date().getFullYear()} Technosys. All rights reserved.</p>
-                          <p style="margin: 0; color: #9ca3af; font-size: 12px;">Quality home services at your doorstep</p>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-            </body>
-            </html>
-          `,
-        });
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`📧 Sent completion OTP to ${email}. OTP: ${otp}`);
+        if (EMAIL_DEV_MODE || !SMTP_READY) {
+          console.log('[generateCompletionOTP] Skip email (dev mode or SMTP not configured)', { otp });
+        } else {
+          // Fire-and-forget so the API responds immediately; retries happen inside helper
+          sendEmailWithRetry({
+            from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
+            replyTo: REPLY_TO,
+            to: email,
+            subject: "Your Service Completion OTP - Technosys",
+            html: `
+              <!DOCTYPE html>
+              <html>
+              <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Service Completion OTP</title>
+              </head>
+              <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6;">
+                <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f3f4f6;">
+                  <tr>
+                    <td align="center" style="padding: 40px 20px;">
+                      <table role="presentation" style="width: 100%; max-width: 600px; border-collapse: collapse; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 16px 16px 0 0; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+                        <!-- Header -->
+                        <tr>
+                          <td style="padding: 40px 30px; text-align: center;">
+                            <div style="display: inline-block; background-color: rgba(255,255,255,0.2); padding: 12px 24px; border-radius: 50px; margin-bottom: 15px;">
+                              <span style="color: #ffffff; font-size: 14px; font-weight: 600; letter-spacing: 1px;">✓ SERVICE COMPLETION</span>
+                            </div>
+                            <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">Service Completion</h1>
+                            <p style="margin: 10px 0 0; color: #d1fae5; font-size: 16px;">Confirm your work is complete</p>
+                          </td>
+                        </tr>
+                      </table>
+                      
+                      <table role="presentation" style="width: 100%; max-width: 600px; border-collapse: collapse; background-color: #ffffff; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+                        <!-- Body -->
+                        <tr>
+                          <td style="padding: 40px 30px;">
+                            <p style="margin: 0 0 20px; color: #374151; font-size: 16px; line-height: 1.6;">Hello,</p>
+                            <p style="margin: 0 0 30px; color: #374151; font-size: 16px; line-height: 1.6;">Your technician has requested confirmation to mark your service as completed. Please verify that all work has been done to your satisfaction before sharing the OTP below.</p>
+                            
+                            <!-- OTP Box -->
+                            <table role="presentation" style="width: 100%; border-collapse: collapse; background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); border-radius: 12px; border: 3px dashed #10b981; margin: 30px 0;">
+                              <tr>
+                                <td style="padding: 30px; text-align: center;">
+                                  <p style="margin: 0 0 15px; color: #6b7280; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Your Completion OTP</p>
+                                  <p style="margin: 0; color: #10b981; font-size: 48px; font-weight: 800; letter-spacing: 8px; font-family: 'Courier New', monospace;">${otp}</p>
+                                  <p style="margin: 15px 0 0; color: #9ca3af; font-size: 13px;">Valid for 2 minutes</p>
+                                </td>
+                              </tr>
+                            </table>
+                            
+                            <!-- Critical Warning Box -->
+                            <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #fef2f2; border-left: 4px solid #dc2626; border-radius: 8px; margin: 25px 0;">
+                              <tr>
+                                <td style="padding: 20px;">
+                                  <p style="margin: 0 0 8px; color: #dc2626; font-size: 14px; font-weight: 700;"><span style="display: inline-block; width: 20px; height: 20px; line-height: 20px; text-align: center; background-color: #dc2626; color: #ffffff; border-radius: 50%; font-size: 12px; font-weight: 900; margin-right: 8px;">!</span>Critical: Read Before Sharing</p>
+                                  <p style="margin: 0; color: #991b1b; font-size: 14px; line-height: 1.5; font-weight: 500;">Share this OTP ONLY if your work is complete and you are satisfied with the service. Once shared, the service will be marked as completed and we cannot be held responsible for incomplete or unsatisfactory work.</p>
+                                </td>
+                              </tr>
+                            </table>
+                            
+                            <!-- Checklist Box -->
+                            <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f0fdf4; border-left: 4px solid #10b981; border-radius: 8px; margin: 25px 0;">
+                              <tr>
+                                <td style="padding: 20px;">
+                                  <p style="margin: 0 0 12px; color: #166534; font-size: 14px; font-weight: 700;"><span style="display: inline-block; width: 18px; height: 18px; line-height: 18px; text-align: center; background-color: #10b981; color: #ffffff; border-radius: 3px; font-size: 12px; font-weight: 900; margin-right: 8px;">✓</span>Before sharing the OTP, please verify:</p>
+                                  <ul style="margin: 0; padding-left: 20px; color: #15803d; font-size: 14px; line-height: 1.8; list-style: none;">
+                                    <li style="padding-left: 0; position: relative;"><span style="color: #10b981; font-weight: 700; margin-right: 8px;">✓</span>All requested work has been completed</li>
+                                    <li style="padding-left: 0; position: relative;"><span style="color: #10b981; font-weight: 700; margin-right: 8px;">✓</span>The quality meets your expectations</li>
+                                    <li style="padding-left: 0; position: relative;"><span style="color: #10b981; font-weight: 700; margin-right: 8px;">✓</span>The work area has been cleaned</li>
+                                    <li style="padding-left: 0; position: relative;"><span style="color: #10b981; font-weight: 700; margin-right: 8px;">✓</span>You have no remaining concerns</li>
+                                  </ul>
+                                </td>
+                              </tr>
+                            </table>
+                            
+                            <p style="margin: 25px 0 0; color: #6b7280; font-size: 14px; line-height: 1.6;">If the work is incomplete or you have concerns, please do not share this OTP and contact our support team immediately.</p>
+                          </td>
+                        </tr>
+                      </table>
+                      
+                      <!-- Footer -->
+                      <table role="presentation" style="width: 100%; max-width: 600px; border-collapse: collapse; background-color: #ffffff; border-radius: 0 0 16px 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+                        <tr>
+                          <td style="padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
+                            <p style="margin: 0 0 10px; color: #9ca3af; font-size: 13px;">© ${new Date().getFullYear()} Technosys. All rights reserved.</p>
+                            <p style="margin: 0; color: #9ca3af; font-size: 12px;">Quality home services at your doorstep</p>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+              </body>
+              </html>
+            `,
+          });
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`📧 Queued completion OTP to ${email}. OTP: ${otp}`);
+          }
         }
       }
     } catch (mailErr) {
-      console.warn("Failed to send completion OTP email", mailErr);
+      console.warn("Failed to queue completion OTP email", mailErr);
     }
 
     return res.json({ success: true, expiresAt, message: "Completion OTP sent to customer email" });
