@@ -53,6 +53,7 @@ export async function sendEmail(mailOptions) {
   const replyTo = mailOptions.replyTo;
   const subject = mailOptions.subject;
   const html = mailOptions.html;
+  const text = mailOptions.text || '';
 
   // Prefer SendGrid API if configured
   if (sgMail && SENDGRID_API_KEY) {
@@ -63,7 +64,18 @@ export async function sendEmail(mailOptions) {
         from: { email: fromEmail, name: parsedName || (process.env.SENDER_NAME || '') },
         subject,
         html,
+        text,
         replyTo,
+        categories: ['transactional', 'otp'],
+        trackingSettings: {
+          clickTracking: { enable: false, enableText: false },
+          openTracking: { enable: false },
+          subscriptionTracking: { enable: false }
+        },
+        mailSettings: {
+          bypassListManagement: { enable: true },
+          bypassSpamManagement: { enable: true }
+        }
       };
       await sgMail.send(payload);
       return { provider: 'sendgrid', ok: true };
