@@ -9,6 +9,8 @@ import transporter from '../config/nodemailer.js';
 const SENDER_NAME = process.env.SENDER_NAME || "Technosys";
 const SENDER_EMAIL = process.env.SENDER_EMAIL || process.env.SMTP_USER || "no-reply@technosys.local";
 const REPLY_TO = process.env.REPLY_TO || SENDER_EMAIL;
+const EMAIL_DEV_MODE = String(process.env.EMAIL_DEV_MODE || "false").toLowerCase() === "true";
+const SMTP_READY = !!process.env.SMTP_HOST && !!process.env.SMTP_USER && !!process.env.SMTP_PASS;
 
 /**
  * Create payment order BEFORE booking (payment-first flow)
@@ -116,96 +118,107 @@ export async function verifyPaymentAuthorization(req, res) {
       const serviceName = booking?.SubCategoryID?.name || 'Service';
       const amount = paymentRecord.Amount;
 
-      await transporter.sendMail({
-        from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
-        replyTo: REPLY_TO,
-        to: customer.Email,
-        subject: 'Payment Authorized - Technosys',
-        html: `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Payment Authorized</title>
-          </head>
-          <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6;">
-            <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f3f4f6;">
-              <tr>
-                <td align="center" style="padding: 40px 20px;">
-                  <table role="presentation" style="width: 100%; max-width: 600px; border-collapse: collapse; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px 16px 0 0; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
-                    <tr>
-                      <td style="padding: 40px 30px; text-align: center;">
-                        <div style="display: inline-block; background-color: rgba(255,255,255,0.2); padding: 12px 24px; border-radius: 50px; margin-bottom: 15px;">
-                          <span style="color: #ffffff; font-size: 14px; font-weight: 600; letter-spacing: 1px;">✓ PAYMENT AUTHORIZED</span>
-                        </div>
-                        <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">Payment Secured</h1>
-                        <p style="margin: 10px 0 0; color: #e0e7ff; font-size: 16px;">Your booking request is being processed</p>
-                      </td>
-                    </tr>
-                  </table>
-                  
-                  <table role="presentation" style="width: 100%; max-width: 600px; border-collapse: collapse; background-color: #ffffff; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
-                    <tr>
-                      <td style="padding: 40px 30px;">
-                        <p style="margin: 0 0 20px; color: #374151; font-size: 16px; line-height: 1.6;">Dear ${customerName},</p>
-                        <p style="margin: 0 0 30px; color: #374151; font-size: 16px; line-height: 1.6;">We have successfully authorized your payment for the ${serviceName} booking. The amount has been securely blocked in your account and will only be charged once a technician accepts your booking and completes the service.</p>
-                        
-                        <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f9fafb; border-radius: 12px; border: 1px solid #e5e7eb; margin: 30px 0;">
-                          <tr>
-                            <td style="padding: 25px;">
-                              <p style="margin: 0 0 12px; color: #6b7280; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Payment Details</p>
-                              <table role="presentation" style="width: 100%; border-collapse: collapse;">
-                                <tr>
-                                  <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Service:</td>
-                                  <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${serviceName}</td>
-                                </tr>
-                                <tr>
-                                  <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Amount Blocked:</td>
-                                  <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">₹${amount.toFixed(2)}</td>
-                                </tr>
-                                <tr>
-                                  <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Payment ID:</td>
-                                  <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${razorpay_payment_id}</td>
-                                </tr>
-                                <tr>
-                                  <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Status:</td>
-                                  <td style="padding: 8px 0; color: #f59e0b; font-size: 14px; font-weight: 700; text-align: right;">AUTHORIZED</td>
-                                </tr>
-                              </table>
-                            </td>
-                          </tr>
-                        </table>
-                        
-                        <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #dbeafe; border-left: 4px solid #3b82f6; border-radius: 8px; margin: 25px 0;">
-                          <tr>
-                            <td style="padding: 20px;">
-                              <p style="margin: 0 0 8px; color: #1e40af; font-size: 14px; font-weight: 700;"><span style="display: inline-block; width: 20px; height: 20px; line-height: 20px; text-align: center; background-color: #3b82f6; color: #ffffff; border-radius: 50%; font-size: 12px; font-weight: 900; margin-right: 8px;">i</span>What's Next?</p>
-                              <p style="margin: 0; color: #1e3a8a; font-size: 14px; line-height: 1.5;">Your booking request will be sent to nearby technicians. Once a technician accepts your booking and completes the service, the blocked amount will be charged. If no technician accepts within 10 minutes, the booking will be auto-cancelled and the blocked amount will be released back to your account.</p>
-                            </td>
-                          </tr>
-                        </table>
-                        
-                        <p style="margin: 25px 0 0; color: #374151; font-size: 16px; line-height: 1.6;">You will receive updates via email and in-app notifications about your booking status.</p>
-                      </td>
-                    </tr>
-                  </table>
-                  
-                  <table role="presentation" style="width: 100%; max-width: 600px; border-collapse: collapse; background-color: #ffffff; border-radius: 0 0 16px 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
-                    <tr>
-                      <td style="padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
-                        <p style="margin: 0 0 10px; color: #9ca3af; font-size: 13px;">© ${new Date().getFullYear()} Technosys. All rights reserved.</p>
-                        <p style="margin: 0; color: #9ca3af; font-size: 12px;">Quality home services at your doorstep</p>
-                      </td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
-            </table>
-          </body>
-          </html>
-        `,
-      });
+      if (EMAIL_DEV_MODE || !SMTP_READY) {
+        console.log('[verifyPaymentAuthorization] Skip email (dev mode or SMTP not configured)', {
+          devMode: EMAIL_DEV_MODE,
+          smtpReady: SMTP_READY,
+        });
+      } else {
+        try {
+          await transporter.sendMail({
+            from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
+            replyTo: REPLY_TO,
+            to: customer.Email,
+            subject: 'Payment Authorized - Technosys',
+            html: `
+              <!DOCTYPE html>
+              <html>
+              <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Payment Authorized</title>
+              </head>
+              <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6;">
+                <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f3f4f6;">
+                  <tr>
+                    <td align="center" style="padding: 40px 20px;">
+                      <table role="presentation" style="width: 100%; max-width: 600px; border-collapse: collapse; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px 16px 0 0; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+                        <tr>
+                          <td style="padding: 40px 30px; text-align: center;">
+                            <div style="display: inline-block; background-color: rgba(255,255,255,0.2); padding: 12px 24px; border-radius: 50px; margin-bottom: 15px;">
+                              <span style="color: #ffffff; font-size: 14px; font-weight: 600; letter-spacing: 1px;">✓ PAYMENT AUTHORIZED</span>
+                            </div>
+                            <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">Payment Secured</h1>
+                            <p style="margin: 10px 0 0; color: #e0e7ff; font-size: 16px;">Your booking request is being processed</p>
+                          </td>
+                        </tr>
+                      </table>
+                      
+                      <table role="presentation" style="width: 100%; max-width: 600px; border-collapse: collapse; background-color: #ffffff; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+                        <tr>
+                          <td style="padding: 40px 30px;">
+                            <p style="margin: 0 0 20px; color: #374151; font-size: 16px; line-height: 1.6;">Dear ${customerName},</p>
+                            <p style="margin: 0 0 30px; color: #374151; font-size: 16px; line-height: 1.6;">We have successfully authorized your payment for the ${serviceName} booking. The amount has been securely blocked in your account and will only be charged once a technician accepts your booking and completes the service.</p>
+                            
+                            <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f9fafb; border-radius: 12px; border: 1px solid #e5e7eb; margin: 30px 0;">
+                              <tr>
+                                <td style="padding: 25px;">
+                                  <p style="margin: 0 0 12px; color: #6b7280; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Payment Details</p>
+                                  <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                                    <tr>
+                                      <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Service:</td>
+                                      <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${serviceName}</td>
+                                    </tr>
+                                    <tr>
+                                      <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Amount Blocked:</td>
+                                      <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">₹${amount.toFixed(2)}</td>
+                                    </tr>
+                                    <tr>
+                                      <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Payment ID:</td>
+                                      <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${razorpay_payment_id}</td>
+                                    </tr>
+                                    <tr>
+                                      <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Status:</td>
+                                      <td style="padding: 8px 0; color: #f59e0b; font-size: 14px; font-weight: 700; text-align: right;">AUTHORIZED</td>
+                                    </tr>
+                                  </table>
+                                </td>
+                              </tr>
+                            </table>
+                            
+                            <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #dbeafe; border-left: 4px solid #3b82f6; border-radius: 8px; margin: 25px 0;">
+                              <tr>
+                                <td style="padding: 20px;">
+                                  <p style="margin: 0 0 8px; color: #1e40af; font-size: 14px; font-weight: 700;"><span style="display: inline-block; width: 20px; height: 20px; line-height: 20px; text-align: center; background-color: #3b82f6; color: #ffffff; border-radius: 50%; font-size: 12px; font-weight: 900; margin-right: 8px;">i</span>What's Next?</p>
+                                  <p style="margin: 0; color: #1e3a8a; font-size: 14px; line-height: 1.5;">Your booking request will be sent to nearby technicians. Once a technician accepts your booking and completes the service, the blocked amount will be charged. If no technician accepts within 10 minutes, the booking will be auto-cancelled and the blocked amount will be released back to your account.</p>
+                                </td>
+                              </tr>
+                            </table>
+                            
+                            <p style="margin: 25px 0 0; color: #374151; font-size: 16px; line-height: 1.6;">You will receive updates via email and in-app notifications about your booking status.</p>
+                          </td>
+                        </tr>
+                      </table>
+                      
+                      <table role="presentation" style="width: 100%; max-width: 600px; border-collapse: collapse; background-color: #ffffff; border-radius: 0 0 16px 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+                        <tr>
+                          <td style="padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
+                            <p style="margin: 0 0 10px; color: #9ca3af; font-size: 13px;">© ${new Date().getFullYear()} Technosys. All rights reserved.</p>
+                            <p style="margin: 0; color: #9ca3af; font-size: 12px;">Quality home services at your doorstep</p>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+              </body>
+              </html>
+            `,
+          });
+        } catch (emailErr) {
+          console.error('verifyPaymentAuthorization email send failed:', emailErr);
+        }
+      }
     }
 
     res.json({
