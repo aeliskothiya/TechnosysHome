@@ -1488,7 +1488,8 @@ export async function generateArrivalOTP(req, res) {
           console.log('[generateArrivalOTP] Skip email (dev mode or SMTP not configured)', { otp });
         } else {
           try {
-            await sendEmailWithRetry({
+            // Fire-and-forget so the API responds immediately; retries happen inside helper
+            sendEmailWithRetry({
               from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
               replyTo: REPLY_TO,
               to: email,
@@ -1566,10 +1567,13 @@ export async function generateArrivalOTP(req, res) {
                 </body>
                 </html>
               `,
+            }).then(() => {
+              if (process.env.NODE_ENV === 'development') {
+                console.log(`📧 Sent arrival OTP to ${email}. OTP: ${otp}`);
+              }
+            }).catch((emailErr) => {
+              console.error('Failed to send arrival OTP email:', emailErr);
             });
-            if (process.env.NODE_ENV === 'development') {
-              console.log(`📧 Sent arrival OTP to ${email}. OTP: ${otp}`);
-            }
           } catch (emailErr) {
             console.error('Failed to send arrival OTP email:', emailErr);
           }
