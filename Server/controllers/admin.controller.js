@@ -27,6 +27,8 @@ const transporter = nodemailer.createTransport({
 const SENDER_NAME = process.env.SENDER_NAME || "Technosys";
 const SENDER_EMAIL = process.env.SENDER_EMAIL || process.env.SMTP_USER || "no-reply@technosys.com";
 const REPLY_TO = process.env.REPLY_TO || SENDER_EMAIL;
+const EMAIL_DEV_MODE = String(process.env.EMAIL_DEV_MODE || "false").toLowerCase() === "true";
+const SMTP_READY = !!process.env.SMTP_HOST && !!process.env.SMTP_USER && !!process.env.SMTP_PASS;
 
 // Get all technicians with filter
 export const getTechnicians = async (req, res) => {
@@ -195,14 +197,14 @@ export const approveTechnician = async (req, res) => {
       });
     }
     // Send approval email
-    try {
-      
-
-      // Create a safe variable for service category name
-      const serviceCategoryName = technician.ServiceCategoryID?.name || 'Not specified';
-      
-
-      await transporter.sendMail({
+    if (EMAIL_DEV_MODE || !SMTP_READY) {
+      console.log('[updateTechnicianStatus] Skip approval email (dev mode or SMTP not configured)');
+    } else {
+      try {
+        // Create a safe variable for service category name
+        const serviceCategoryName = technician.ServiceCategoryID?.name || 'Not specified';
+        
+        await transporter.sendMail({
         from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
         replyTo: REPLY_TO,
         to: technician.Email,
@@ -252,6 +254,7 @@ export const approveTechnician = async (req, res) => {
     } catch (emailError) {
       console.error("❌ Approval email error:", emailError);
     }
+  }
 
     res.json({
       success: true,
@@ -328,9 +331,12 @@ export const rejectTechnician = async (req, res) => {
     const serviceCategoryName = technician.ServiceCategoryID?.name || 'Not specified';
 
     // Send rejection email
-    try {
-      await transporter.sendMail({
-        from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
+    if (EMAIL_DEV_MODE || !SMTP_READY) {
+      console.log('[rejectTechnician] Skip rejection email (dev mode or SMTP not configured)');
+    } else {
+      try {
+        await transporter.sendMail({
+          from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
         replyTo: REPLY_TO,
         to: technician.Email,
         subject: "Update on Your Technician Account Application - Technosys",
@@ -377,6 +383,7 @@ export const rejectTechnician = async (req, res) => {
     } catch (emailError) {
       console.error("Rejection email error:", emailError);
     }
+  }
 
     res.json({
       success: true,

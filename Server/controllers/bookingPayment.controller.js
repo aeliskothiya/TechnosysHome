@@ -283,7 +283,11 @@ export async function capturePaymentOnAcceptance(bookingId) {
       const serviceName = booking.SubCategoryID?.name || 'Service';
       const technicianName = booking.TechnicianID?.Name || 'Technician';
 
-      await transporter.sendMail({
+      if (EMAIL_DEV_MODE || !SMTP_READY) {
+        console.log('[capturePaymentOnAcceptance] Skip email (dev mode or SMTP not configured)');
+      } else {
+        try {
+          await transporter.sendMail({
         from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
         replyTo: REPLY_TO,
         to: booking.CustomerID.Email,
@@ -363,7 +367,11 @@ export async function capturePaymentOnAcceptance(bookingId) {
           </body>
           </html>
         `,
-      });
+          });
+        } catch (emailErr) {
+          console.error('capturePaymentOnAcceptance email send failed:', emailErr);
+        }
+      }
     }
 
     console.log(`✓ Payment captured for booking ${bookingId}`);
@@ -403,7 +411,11 @@ export async function refundPaymentOnCancellation(bookingId) {
       const customerName = `${booking.CustomerID.FirstName || ''} ${booking.CustomerID.LastName || ''}`.trim() || 'Valued Customer';
       const serviceName = booking.SubCategoryID?.name || 'Service';
 
-      await transporter.sendMail({
+      if (EMAIL_DEV_MODE || !SMTP_READY) {
+        console.log('[refundPaymentOnCancellation] Skip email (dev mode or SMTP not configured)');
+      } else {
+        try {
+          await transporter.sendMail({
         from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
         replyTo: REPLY_TO,
         to: booking.CustomerID.Email,
@@ -488,7 +500,11 @@ export async function refundPaymentOnCancellation(bookingId) {
           </body>
           </html>
         `,
-      });
+          });
+        } catch (emailErr) {
+          console.error('refundPaymentOnCancellation email send failed:', emailErr);
+        }
+      }
     }
 
     console.log(`✓ Payment refunded for booking ${bookingId}`);

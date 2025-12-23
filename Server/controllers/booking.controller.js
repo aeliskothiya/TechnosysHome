@@ -1558,13 +1558,14 @@ export async function generateArrivalOTP(req, res) {
             </body>
             </html>
           `,
-        });
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`📧 Sent arrival OTP to ${email}. OTP: ${otp}`);
+          });
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`📧 Sent arrival OTP to ${email}. OTP: ${otp}`);
+          }
         }
       }
     } catch (mailErr) {
-      console.warn("Failed to send arrival OTP email", mailErr);
+      console.error("Failed to send arrival OTP email:", mailErr);
     }
 
     return res.json({ success: true, expiresAt, message: "OTP sent to customer email" });

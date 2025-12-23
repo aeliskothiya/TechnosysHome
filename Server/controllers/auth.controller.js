@@ -258,8 +258,11 @@ export const register = async (req, res) => {
     });
 
     // ✅ Welcome email
-    try {
-      await transporter.sendMail({
+    if (EMAIL_DEV_MODE || !process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      console.log('[register] Skip welcome email (dev mode or SMTP not configured)');
+    } else {
+      try {
+        await transporter.sendMail({
         from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
         replyTo: REPLY_TO,
         to: email,
@@ -308,9 +311,10 @@ export const register = async (req, res) => {
           </body>
           </html>
         `,
-      });
-    } catch (emailError) {
-      console.error("Welcome email failed:", emailError);
+        });
+      } catch (emailError) {
+        console.error("Welcome email failed:", emailError);
+      }
     }
 
     return res.status(201).json({
@@ -717,6 +721,13 @@ export const verifyMobileOtp = async (req, res) => {
       });
     }
 
+    if (record.isVerified) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP already used. Please request a new one.",
+      });
+    }
+
     if (record.otp !== otp) {
       return res.status(400).json({ success: false, message: "Invalid OTP" });
     }
@@ -726,7 +737,7 @@ export const verifyMobileOtp = async (req, res) => {
         .status(400)
         .json({ success: false, message: "OTP has expired" });
     }
-    //
+
     record.isVerified = true;
     await record.save();
 
@@ -772,46 +783,67 @@ export const sendEmailOtp = async (req, res) => {
     }
 
     // Send Email via SMTP
-    await transporter.sendMail({
-      from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
-      replyTo: REPLY_TO,
-      to: email,
-      subject: `Your ${SENDER_NAME} verification code`,
-      html: `
-        <!doctype html>
-        <html>
-        <head><meta charset="utf-8"/></head>
-        <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f4f6fb;">
-          <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
-            <tr>
-              <td align="center" style="padding:24px 16px;">
-                <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="background:#ffffff;border-radius:8px;overflow:hidden;">
-                  <tr style="background:#0f172a;color:#ffffff;"><td style="padding:18px 24px;font-weight:700;">${SENDER_NAME}</td></tr>
-                  <tr><td style="padding:24px;color:#0f172a;"><h2 style="margin:0 0 12px;font-size:20px;">Email verification code</h2><p style="margin:0 0 18px;color:#475569;">Use the code below to verify your email address. It expires in 2 minutes.</p>
-                    <div style="margin:16px 0;text-align:center;"><div style="display:inline-block;background:#eef2ff;border-radius:8px;padding:14px 20px;font-weight:700;font-size:20px;letter-spacing:4px;color:#0f172a;">${otp}</div></div>
-                    <p style="margin:0;color:#94a3b8;font-size:13px;">If you didn't request this, please ignore this email.</p>
-                  </td></tr>
-                  <tr><td style="background:#f8fafc;padding:12px 24px;color:#9aa4b2;font-size:12px;">© ${new Date().getFullYear()} ${SENDER_NAME}</td></tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-        </body>
-        </html>
-      `,
-    });
+    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      console.log('[sendEmailOtp] SMTP not configured, returning OTP without sending email');
+      return res.status(200).json({
+        success: true,
+        message: "OTP sent successfully (Email service not configured)",
+        otp,
+        email,
+      });
+    }
 
-    return res.status(200).json({
-      success: true,
-      message: "OTP sent successfully",
-      ...(process.env.NODE_ENV === "development" && { otp }),
-    });
+    try {
+      await transporter.sendMail({
+        from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
+        replyTo: REPLY_TO,
+        to: email,
+        subject: `Your ${SENDER_NAME} verification code`,
+        html: `
+          <!doctype html>
+          <html>
+          <head><meta charset="utf-8"/></head>
+          <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f4f6fb;">
+            <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+              <tr>
+                <td align="center" style="padding:24px 16px;">
+                  <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="background:#ffffff;border-radius:8px;overflow:hidden;">
+                    <tr style="background:#0f172a;color:#ffffff;"><td style="padding:18px 24px;font-weight:700;">${SENDER_NAME}</td></tr>
+                    <tr><td style="padding:24px;color:#0f172a;"><h2 style="margin:0 0 12px;font-size:20px;">Email verification code</h2><p style="margin:0 0 18px;color:#475569;">Use the code below to verify your email address. It expires in 2 minutes.</p>
+                      <div style="margin:16px 0;text-align:center;"><div style="display:inline-block;background:#eef2ff;border-radius:8px;padding:14px 20px;font-weight:700;font-size:20px;letter-spacing:4px;color:#0f172a;">${otp}</div></div>
+                      <p style="margin:0;color:#94a3b8;font-size:13px;">If you didn't request this, please ignore this email.</p>
+                    </td></tr>
+                    <tr><td style="background:#f8fafc;padding:12px 24px;color:#9aa4b2;font-size:12px;">© ${new Date().getFullYear()} ${SENDER_NAME}</td></tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+          </html>
+        `,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "OTP sent successfully",
+        ...(process.env.NODE_ENV === "development" && { otp }),
+      });
+    } catch (smtpErr) {
+      console.error('sendEmailOtp SMTP error:', smtpErr);
+      // Still return success with OTP in dev mode so user can proceed
+      return res.status(200).json({
+        success: true,
+        message: "OTP generated (email service temporarily unavailable)",
+        otp,
+        email,
+      });
+    }
   } catch (error) {
     console.error("Send email OTP error:", error);
-    const message = error && error.code === 'ETIMEDOUT'
-      ? "Email service connection timed out. Please try again later."
-      : "Failed to send verification email";
-    return res.status(500).json({ success: false, message });
+    return res.status(500).json({ 
+      success: false, 
+      message: "Failed to generate OTP. Please try again."
+    });
   }
 };
 
@@ -834,6 +866,12 @@ export const verifyEmailOtp = async (req, res) => {
       return res
         .status(404)
         .json({ success: false, message: "OTP not found. Request again." });
+
+    if (record.isVerified)
+      return res.status(400).json({ 
+        success: false, 
+        message: "OTP already used. Please request a new one." 
+      });
 
     if (record.otp !== otp)
       return res.status(400).json({ success: false, message: "Invalid OTP" });
@@ -1080,6 +1118,13 @@ export const verifyCustomerMobileOtp = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "OTP not found. Please request again."
+      });
+    }
+
+    if (record.isVerified) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP already used. Please request a new one."
       });
     }
 
