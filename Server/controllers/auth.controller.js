@@ -621,7 +621,10 @@ const initTwilioClient = () => {
 const twilioClient = initTwilioClient();
 // Allow forcing OTP dev mode independently of NODE_ENV so we can
 // keep production cookies while skipping real SMS sends.
-const OTP_DEV_MODE = String(process.env.OTP_DEV_MODE || "false").toLowerCase() === "true";
+// Auto-enable dev mode if NODE_ENV is development
+const OTP_DEV_MODE = 
+  String(process.env.OTP_DEV_MODE || "false").toLowerCase() === "true" ||
+  (process.env.NODE_ENV && process.env.NODE_ENV.toLowerCase().includes("dev"));
 
 
 
