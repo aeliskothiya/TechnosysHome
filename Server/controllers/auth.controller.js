@@ -259,15 +259,15 @@ export const register = async (req, res) => {
     });
 
     // ✅ Welcome email
-    if (EMAIL_DEV_MODE || !process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      console.log('[register] Skip welcome email (dev mode or SMTP not configured)');
+    if (EMAIL_DEV_MODE) {
+      console.log('[register] Skipping welcome email (EMAIL_DEV_MODE=true)');
     } else {
       try {
-        await transporter.sendMail({
-        from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
-        replyTo: REPLY_TO,
-        to: email,
-        subject: "Welcome to Technosys!",
+        await sendEmail({
+          from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
+          replyTo: REPLY_TO,
+          to: email,
+          subject: "Welcome to Technosys!",
         html: `
           <!doctype html>
           <html>
@@ -313,8 +313,9 @@ export const register = async (req, res) => {
           </html>
         `,
         });
+        console.log('[register] Welcome email sent successfully');
       } catch (emailError) {
-        console.error("Welcome email failed:", emailError);
+        console.error("[register] Welcome email failed:", emailError?.message || emailError);
       }
     }
 
@@ -358,28 +359,8 @@ export const register = async (req, res) => {
 // ================= LOGIN =================
 export const login = async (req, res) => {
   const { email, password, recaptchaToken } = req.body;
-  // Find login block info
-  const loginBlock = await LoginBlock.findOne({ Email: email });
-  // If failed attempts >= 1, require reCAPTCHA
-  if (loginBlock && loginBlock.AttemptCount >= 1 ) {
-    if (!recaptchaToken) {
-      return res.status(400).json({ success: false, message: "reCAPTCHA required" });
-    }
-    const secretKey = process.env.RECAPTCHA_SECRET_KEY;
-    const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${recaptchaToken}`;
-    try {
-      const response = await axios.post(verifyUrl);
-      if (!response.data.success) {
-        return res.status(400).json({ success: false, message: "reCAPTCHA failed" });
-      }
-    } catch (err) {
-      return res.status(500).json({ success: false, message: "reCAPTCHA error" });
-    }
-  }
-
-  const { email: userEmail, password: userPassword } = req.body;
-
-  if (!userEmail || !userPassword) {
+  
+  if (!email || !password) {
     return res.status(400).json({
       success: false,
       message: "Email and Password are required",
@@ -387,22 +368,35 @@ export const login = async (req, res) => {
   }
 
   try {
-    // Brute-force protection: check block status
-    const loginBlock = await LoginBlock.findOne({ Email: userEmail });
+    // Find login block info
+    const loginBlock = await LoginBlock.findOne({ Email: email });
+    
+    // Only require reCAPTCHA if CURRENTLY blocked (not just after 1 attempt)
     if (loginBlock && loginBlock.BlockedUntil && loginBlock.BlockedUntil > new Date()) {
-      const waitMinutes = Math.ceil((loginBlock.BlockedUntil - new Date()) / 60000);
-      return res.status(429).json({
-        success: false,
-        message: `Too many failed attempts. Try again in ${waitMinutes} minute(s).`,
-      });
+      if (!recaptchaToken) {
+        console.warn(`[Login] reCAPTCHA required for ${email} (blocked until ${loginBlock.BlockedUntil})`);
+        return res.status(400).json({ success: false, message: "reCAPTCHA required" });
+      }
+      
+      const secretKey = process.env.RECAPTCHA_SECRET_KEY;
+      const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${recaptchaToken}`;
+      try {
+        const response = await axios.post(verifyUrl);
+        if (!response.data.success) {
+          return res.status(400).json({ success: false, message: "reCAPTCHA failed" });
+        }
+      } catch (err) {
+        console.error('[Login] reCAPTCHA verification error:', err.message);
+        return res.status(500).json({ success: false, message: "reCAPTCHA error" });
+      }
     }
 
     let user = null;
     let userType = "";
     // Check if it's an admin login (admin emails might have a specific pattern or check both collections)
-    const admin = await Admin.findOne({ username: userEmail });
+    const admin = await Admin.findOne({ username: email });
     if (admin) {
-      const isMatch = await bcrypt.compare(userPassword, admin.password);
+      const isMatch = await bcrypt.compare(password, admin.password);
       if (isMatch) {
         user = admin;
         userType = "admin";
@@ -411,7 +405,7 @@ export const login = async (req, res) => {
 
     // If not admin, check technician
     if (!user) {
-      const technician = await Technician.findOne({ Email: userEmail });
+      const technician = await Technician.findOne({ Email: email });
 
       if (technician) {
         // Check if technician is approved
@@ -432,7 +426,7 @@ export const login = async (req, res) => {
           });
         }
 
-        const isMatch = await bcrypt.compare(userPassword, technician.Password);
+        const isMatch = await bcrypt.compare(password, technician.Password);
         if (isMatch) {
           user = technician;
           userType = "technician";
@@ -456,7 +450,7 @@ export const login = async (req, res) => {
           await loginBlock.save();
         }
       } else {
-        await LoginBlock.create({ Email: userEmail, AttemptCount: 1 });
+        await LoginBlock.create({ Email: email, AttemptCount: 1 });
       }
       return res.status(401).json({
         success: false,
@@ -785,11 +779,9 @@ export const sendEmailOtp = async (req, res) => {
       { upsert: true, new: true }
     );
 
-    const IS_PROD = (process.env.NODE_ENV || '').toLowerCase() === 'production';
-
     // In dev mode, don't send actual email
     if (EMAIL_DEV_MODE) {
-      console.log("Email OTP (Dev Mode):", { email, otp });
+      console.log("[sendEmailOtp] Email OTP (Dev Mode):", { email, otp });
       return res.status(200).json({
         success: true,
         message: "OTP sent successfully (Dev Mode - Email skipped)",
@@ -799,7 +791,6 @@ export const sendEmailOtp = async (req, res) => {
     }
 
     // Attempt to send via SendGrid API (preferred) or SMTP fallback
-
     try {
       await sendEmail({
         from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
@@ -830,26 +821,16 @@ export const sendEmailOtp = async (req, res) => {
         `,
       });
 
+      console.log('[sendEmailOtp] Email OTP sent successfully to:', email);
       return res.status(200).json({
         success: true,
         message: "OTP sent successfully",
-        // Only echo OTP in non-production builds for debugging
-        ...(!IS_PROD ? { otp } : {}),
       });
     } catch (smtpErr) {
-      console.error('sendEmailOtp SMTP error:', smtpErr);
-      if (IS_PROD) {
-        return res.status(500).json({
-          success: false,
-          message: "Email service temporarily unavailable. Please try again.",
-        });
-      }
-      // Non-prod: allow dev testing
-      return res.status(200).json({
-        success: true,
-        message: "OTP generated (email service temporarily unavailable)",
-        otp,
-        email,
+      console.error('[sendEmailOtp] SMTP error:', smtpErr?.message || smtpErr);
+      return res.status(500).json({
+        success: false,
+        message: "Email service temporarily unavailable. Please try again.",
       });
     }
   } catch (error) {
