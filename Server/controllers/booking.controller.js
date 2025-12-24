@@ -1718,28 +1718,30 @@ export async function completeService(req, res) {
       throw invoiceErr;
     }
 
-    // Send Email with Invoice
+    // Send Email with Invoice (non-blocking)
     if (booking.TechnicianID?.Email && invoiceDoc?.invoice_pdf) {
-      try {
-        const fs = (await import('fs')).default || (await import('fs'));
-        const path = (await import('path')).default || (await import('path'));
-        
-        const SENDER_NAME = process.env.SENDER_NAME || 'Technosys';
-        const SENDER_EMAIL = process.env.SENDER_EMAIL || process.env.SMTP_USER || 'no-reply@technosys.local';
-        const REPLY_TO = process.env.REPLY_TO || SENDER_EMAIL;
-
-        let invoiceBuffer = null;
+      // Run email sending in background without blocking response
+      (async () => {
         try {
-          const invoicePath = path.join(process.cwd(), invoiceDoc.invoice_pdf);
-          invoiceBuffer = fs.readFileSync(invoicePath);
-        } catch (readErr) {
-          console.error(`Could not read PDF: ${readErr.message}`);
-        }
+          const fs = (await import('fs')).default || (await import('fs'));
+          const path = (await import('path')).default || (await import('path'));
+          
+          const SENDER_NAME = process.env.SENDER_NAME || 'Technosys';
+          const SENDER_EMAIL = process.env.SENDER_EMAIL || process.env.SMTP_USER || 'no-reply@technosys.local';
+          const REPLY_TO = process.env.REPLY_TO || SENDER_EMAIL;
 
-        const serviceName = booking.SubCategoryID?.name || 'Service';
-        const customerName = `${booking.CustomerID?.FirstName || ''} ${booking.CustomerID?.LastName || ''}`.trim() || 'Customer';
+          let invoiceBuffer = null;
+          try {
+            const invoicePath = path.join(process.cwd(), invoiceDoc.invoice_pdf);
+            invoiceBuffer = fs.readFileSync(invoicePath);
+          } catch (readErr) {
+            console.error(`Could not read PDF: ${readErr.message}`);
+          }
 
-        await transporter.sendMail({
+          const serviceName = booking.SubCategoryID?.name || 'Service';
+          const customerName = `${booking.CustomerID?.FirstName || ''} ${booking.CustomerID?.LastName || ''}`.trim() || 'Customer';
+
+          await transporter.sendMail({
           from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
           replyTo: REPLY_TO,
           to: booking.TechnicianID.Email,
@@ -1806,16 +1808,20 @@ export async function completeService(req, res) {
   </table>
 </body>
 </html>`,
-        });
-      } catch (mailErr) {
-        console.error('Email failed:', mailErr.message);
-      }
+          });
+          console.log('✅ Technician invoice email sent successfully');
+        } catch (mailErr) {
+          console.error('❌ Technician email failed:', mailErr.message);
+        }
+      })().catch(err => console.error('Background email error:', err.message));
     }
 
-    // Send completion email to customer with feedback CTA
+    // Send completion email to customer with feedback CTA (non-blocking)
     if (booking.CustomerID?.Email) {
-      try {
-        const SENDER_NAME = process.env.SENDER_NAME || 'Technosys';
+      // Run in background
+      (async () => {
+        try {
+          const SENDER_NAME = process.env.SENDER_NAME || 'Technosys';
         const SENDER_EMAIL = process.env.SENDER_EMAIL || process.env.SMTP_USER || 'no-reply@technosys.local';
         const REPLY_TO = process.env.REPLY_TO || SENDER_EMAIL;
         const feedbackUrl = process.env.CUSTOMER_FEEDBACK_URL || 'http://localhost:5176/customer/bookings';
@@ -1880,10 +1886,12 @@ export async function completeService(req, res) {
   </table>
 </body>
 </html>`
-        });
-      } catch (customerMailErr) {
-        console.error('Customer completion email failed:', customerMailErr.message);
-      }
+          });
+          console.log('✅ Customer completion email sent successfully');
+        } catch (customerMailErr) {
+          console.error('❌ Customer completion email failed:', customerMailErr.message);
+        }
+      })().catch(err => console.error('Background customer email error:', err.message));
     }
 
     // Notify Customer via Socket

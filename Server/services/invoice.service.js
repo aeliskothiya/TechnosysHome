@@ -32,6 +32,10 @@ export async function generateInvoice({ refType = 'SubscriptionPayment', refId, 
     const logoSvgPath = path.join(__dirname, '..', '..', 'Client', 'public', 'navbarlogo.svg');
     let logoDataUri = null;
     let logoBuffer = null;
+    
+    // Skip Puppeteer for SVG conversion on production
+    const skipPuppeteerLogo = process.env.SKIP_PUPPETEER === 'true' || process.env.NODE_ENV === 'production';
+    
     try {
       if (fs.existsSync(logoPngPath)) {
         logoBuffer = fs.readFileSync(logoPngPath);
@@ -39,34 +43,23 @@ export async function generateInvoice({ refType = 'SubscriptionPayment', refId, 
       } else if (fs.existsSync(logoSvgPath)) {
         const svgText = fs.readFileSync(logoSvgPath, 'utf8');
         logoDataUri = `data:image/svg+xml;base64,${Buffer.from(svgText).toString('base64')}`;
-        try {
-          const sharpModule = await import('sharp').catch(() => null);
-          if (sharpModule) {
-            const sharp = sharpModule.default || sharpModule;
-            const pngBuf = await sharp(Buffer.from(svgText)).png().toBuffer();
-            logoBuffer = pngBuf;
-            logoDataUri = `data:image/png;base64,${pngBuf.toString('base64')}`;
-          }
-        } catch (e) {
-          // ignore sharp errors
-        }
-        if (!logoBuffer) {
+        
+        // Try sharp first (lightweight)
+        if (!skipPuppeteerLogo) {
           try {
-            const puppeteerModule = await import('puppeteer').catch(() => null);
-            if (puppeteerModule) {
-              const puppeteer = puppeteerModule.default || puppeteerModule;
-              const b = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-              const p = await b.newPage();
-              await p.setContent(`<html><body style="margin:0;padding:0">${svgText}</body></html>`, { waitUntil: 'networkidle0' });
-              const pngBuf = await p.screenshot({ omitBackground: true, type: 'png' });
-              await b.close();
+            const sharpModule = await import('sharp').catch(() => null);
+            if (sharpModule) {
+              const sharp = sharpModule.default || sharpModule;
+              const pngBuf = await sharp(Buffer.from(svgText)).png().toBuffer();
               logoBuffer = pngBuf;
               logoDataUri = `data:image/png;base64,${pngBuf.toString('base64')}`;
             }
           } catch (e) {
-            // ignore puppeteer errors
+            // Silently skip sharp if not available
           }
         }
+        
+        // Skip Puppeteer entirely on production - use SVG data URI as fallback
       }
     } catch (logoErr) {
       console.warn('Invoice service: logo load failed', logoErr?.message || logoErr);
@@ -204,21 +197,29 @@ export async function generateInvoice({ refType = 'SubscriptionPayment', refId, 
 </body>
 </html>`;
 
+    // Skip Puppeteer entirely on production/Render - use PDFKit directly
     let pdfGenerated = false;
-    try {
-      const puppeteerModule = await import('puppeteer').catch(() => null);
-      if (puppeteerModule) {
-        const puppeteer = puppeteerModule.default || puppeteerModule;
-        const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-        const page = await browser.newPage();
-        await page.setContent(html, { waitUntil: 'networkidle0' });
-        await page.pdf({ path: invoicePath, format: 'A4', printBackground: true, margin: { top: '16mm', bottom: '16mm', left: '12mm', right: '12mm' } });
-        await browser.close();
-        pdfGenerated = true;
+    const skipPuppeteer = process.env.SKIP_PUPPETEER === 'true' || process.env.NODE_ENV === 'production';
+    
+    if (!skipPuppeteer) {
+      try {
+        const puppeteerModule = await import('puppeteer').catch(() => null);
+        if (puppeteerModule) {
+          const puppeteer = puppeteerModule.default || puppeteerModule;
+          const browser = await puppeteer.launch({ 
+            args: ['--no-sandbox', '--disable-setuid-sandbox'],
+            headless: 'new'
+          });
+          const page = await browser.newPage();
+          await page.setContent(html, { waitUntil: 'networkidle0', timeout: 10000 });
+          await page.pdf({ path: invoicePath, format: 'A4', printBackground: true, margin: { top: '16mm', bottom: '16mm', left: '12mm', right: '12mm' } });
+          await browser.close();
+          pdfGenerated = true;
+        }
+      } catch (e) {
+        console.warn('Invoice service: puppeteer failed, falling back to PDFKit', e?.message || e);
+        pdfGenerated = false;
       }
-    } catch (e) {
-      console.warn('Invoice service: puppeteer failed, falling back to PDFKit', e?.message || e);
-      pdfGenerated = false;
     }
 
     if (!pdfGenerated) {
