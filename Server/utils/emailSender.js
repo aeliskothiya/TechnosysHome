@@ -53,7 +53,24 @@ export async function sendEmail(mailOptions) {
   const replyTo = mailOptions.replyTo;
   const subject = mailOptions.subject;
   const html = mailOptions.html;
-  const text = mailOptions.text || '';
+  
+  // Generate plain text from HTML if not provided (strip HTML tags)
+  let text = mailOptions.text;
+  if (!text && html) {
+    // Strip HTML tags and decode entities for plain text version
+    text = html
+      .replace(/<[^>]*>/g, ' ')  // Remove HTML tags
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&amp;/g, '&')
+      .replace(/\s+/g, ' ')  // Collapse whitespace
+      .trim();
+  }
+  
+  // Ensure text is never empty for SendGrid API
+  text = text || subject || 'Message from Technosys';
 
   // Prefer SendGrid API if configured
   if (sgMail && SENDGRID_API_KEY) {
@@ -64,7 +81,7 @@ export async function sendEmail(mailOptions) {
         from: { email: fromEmail, name: parsedName || (process.env.SENDER_NAME || '') },
         subject,
         html,
-        text,
+        text,  // Now guaranteed to have content
         replyTo,
         categories: ['transactional', 'otp'],
         trackingSettings: {
