@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import userModel from "../models/userModels.js";
 import transporter from "../config/nodemailer.js";
+import { sendEmail } from "../utils/emailSender.js";
 import UserGoogle from "../models/userGoogleModel.js";
 import Technician from "../models/Technician.js";
 import TechnicianBankDetails from "../models/TechnicianBankDetails.js";
@@ -797,17 +798,10 @@ export const sendEmailOtp = async (req, res) => {
       });
     }
 
-    // Send Email via SMTP
-    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      console.error('[sendEmailOtp] SMTP not configured');
-      return res.status(500).json({
-        success: false,
-        message: "Email service is not configured. Please contact support.",
-      });
-    }
+    // Attempt to send via SendGrid API (preferred) or SMTP fallback
 
     try {
-      await transporter.sendMail({
+      await sendEmail({
         from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
         replyTo: REPLY_TO,
         to: email,

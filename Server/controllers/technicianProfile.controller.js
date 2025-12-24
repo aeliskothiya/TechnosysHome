@@ -4,7 +4,8 @@ import TechnicianServiceCategory from "../models/TechnicianServiceCategory.js";
 import TempOtpVerification from "../models/TempOtpVerification.js";
 import SubServiceCategory from "../models/SubServiceCategory.js";
 import bcrypt from "bcryptjs";
-import nodemailer from "nodemailer";
+import transporter from "../config/nodemailer.js";
+import { sendEmail } from "../utils/emailSender.js";
 import twilio from "twilio";
 import { mkdir, unlink } from "fs/promises";
 import { existsSync } from "fs";
@@ -17,15 +18,7 @@ const twilioClient = twilio(
   process.env.TWILIO_AUTH_TOKEN
 );
 
-// Initialize nodemailer
-const transporter = nodemailer.createTransport({
-  host: "smtp-relay.brevo.com",
-  port: 587,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+// Use shared SMTP transporter from config
 
 // Sender display name helpers
 const SENDER_NAME = process.env.SENDER_NAME || "Technosys";
@@ -51,8 +44,8 @@ const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
-// Helper function to send email OTP
-// Returns an object: { success: boolean, previewUrl?: string, error?: string }
+// Helper function to send email OTP via configured SMTP
+// Returns an object: { success: boolean, error?: string }
 const sendEmailOTPHelper = async (email, otp) => {
   try {
     const message = {
@@ -71,30 +64,9 @@ const sendEmailOTPHelper = async (email, otp) => {
       `,
     };
 
-    // If SMTP credentials are present, use configured transporter
-    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-      const info = await transporter.sendMail(message);
-      return { success: true };
-    }
-
-    // In development, create a Nodemailer test account (Ethereal) for previews
-    if (process.env.NODE_ENV === "development") {
-      const testAccount = await nodemailer.createTestAccount();
-      const testTransport = nodemailer.createTransport({
-        host: testAccount.smtp.host,
-        port: testAccount.smtp.port,
-        secure: testAccount.smtp.secure,
-        auth: {
-          user: testAccount.user,
-          pass: testAccount.pass,
-        },
-      });
-      const info = await testTransport.sendMail(message);
-      const previewUrl = nodemailer.getTestMessageUrl(info);
-      return { success: true, previewUrl };
-    }
-
-    return { success: false, error: "SMTP not configured" };
+    // Always attempt send via shared transporter
+    await sendEmail(message);
+    return { success: true };
   } catch (error) {
     console.error("Email OTP send error:", error);
     return { success: false, error: error.message || String(error) };
