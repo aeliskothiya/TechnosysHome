@@ -658,28 +658,24 @@ export const sendMobileOtp = async (req, res) => {
 
     if (!OTP_DEV_MODE) {
       // Validate Twilio configuration
-      if (!twilioClient) {
-        console.error('❌ Twilio client not initialized - check credentials');
-        return res.status(500).json({
-          success: false,
-          message: "SMS service is not configured. Please contact support."
+      const twilioNumber = process.env.TWILIO_PHONE_NUMBER;
+      const isTestNumber = String(twilioNumber || '').includes('1500555');
+
+      if (!twilioClient || !twilioNumber) {
+        console.error('❌ Twilio config missing - falling back to dev OTP response');
+        return res.status(200).json({
+          success: true,
+          message: "OTP sent successfully (Fallback - SMS skipped)",
+          otp,
+          mobile,
+          fallback: true,
         });
       }
 
-      if (!process.env.TWILIO_PHONE_NUMBER) {
-        console.error('❌ TWILIO_PHONE_NUMBER is not set');
-        return res.status(500).json({
-          success: false,
-          message: "SMS service is not configured properly."
-        });
-      }
-
-      // Twilio SMS with graceful fallback for test/misconfigured numbers
-      const isTestNumber = String(process.env.TWILIO_PHONE_NUMBER || '').includes('1500555');
       try {
         await twilioClient.messages.create({
           body: `Your Technosys verification code is: ${otp}.This OTP is valid for 2 minutes.`,
-          from: process.env.TWILIO_PHONE_NUMBER,
+          from: twilioNumber,
           to: `+91${mobile}`,
         });
         return res
@@ -687,18 +683,15 @@ export const sendMobileOtp = async (req, res) => {
           .json({ success: true, message: "OTP sent successfully", mobile });
       } catch (twilioErr) {
         console.error('Twilio SMS send failed:', twilioErr?.message || twilioErr);
-        // If using Twilio test number or non-production, fall back to dev response so UI can proceed
-        if (isTestNumber || (process.env.NODE_ENV && process.env.NODE_ENV.toLowerCase() !== 'production')) {
-          console.warn('Falling back to dev-mode OTP response due to Twilio error');
-          return res.status(200).json({
-            success: true,
-            message: "OTP sent successfully (Fallback - SMS skipped)",
-            otp,
-            mobile,
-            fallback: true,
-          });
-        }
-        throw twilioErr;
+        // Always fall back to returning OTP so flow is not blocked
+        console.warn('Falling back to dev-mode OTP response due to Twilio error');
+        return res.status(200).json({
+          success: true,
+          message: "OTP sent successfully (Fallback - SMS skipped)",
+          otp,
+          mobile,
+          fallback: true,
+        });
       }
     } else {
       // Dev mode → return OTP
@@ -791,6 +784,8 @@ export const sendEmailOtp = async (req, res) => {
       { upsert: true, new: true }
     );
 
+    const IS_PROD = (process.env.NODE_ENV || '').toLowerCase() === 'production';
+
     // In dev mode, don't send actual email
     if (EMAIL_DEV_MODE) {
       console.log("Email OTP (Dev Mode):", { email, otp });
@@ -804,12 +799,10 @@ export const sendEmailOtp = async (req, res) => {
 
     // Send Email via SMTP
     if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      console.log('[sendEmailOtp] SMTP not configured, returning OTP without sending email');
-      return res.status(200).json({
-        success: true,
-        message: "OTP sent successfully (Email service not configured)",
-        otp,
-        email,
+      console.error('[sendEmailOtp] SMTP not configured');
+      return res.status(500).json({
+        success: false,
+        message: "Email service is not configured. Please contact support.",
       });
     }
 
@@ -846,11 +839,18 @@ export const sendEmailOtp = async (req, res) => {
       return res.status(200).json({
         success: true,
         message: "OTP sent successfully",
-        ...(process.env.NODE_ENV === "development" && { otp }),
+        // Only echo OTP in non-production builds for debugging
+        ...(!IS_PROD ? { otp } : {}),
       });
     } catch (smtpErr) {
       console.error('sendEmailOtp SMTP error:', smtpErr);
-      // Still return success with OTP in dev mode so user can proceed
+      if (IS_PROD) {
+        return res.status(500).json({
+          success: false,
+          message: "Email service temporarily unavailable. Please try again.",
+        });
+      }
+      // Non-prod: allow dev testing
       return res.status(200).json({
         success: true,
         message: "OTP generated (email service temporarily unavailable)",
