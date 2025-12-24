@@ -962,22 +962,31 @@ async function captureAndEmailPayment(booking) {
     payment.Status = 'Captured';
     await payment.save();
 
+    console.log(`✅ Payment status updated to Captured for booking ${booking._id}`);
+
     // Generate invoice
-    const invoiceDoc = await generateInvoice({
-      refType: 'CustomerPayment',
-      refId: payment._id,
-      paymentRecord: payment,
-      subscriptionPackage: {
-        name: fullBooking.SubCategoryID?.name || 'Service Booking',
-        price: payment.Amount,
-        coins: 1,
-      },
-      recipient: {
-        Name: `${fullBooking.CustomerID?.FirstName || ''} ${fullBooking.CustomerID?.LastName || ''}`.trim(),
-        Email: fullBooking.CustomerID?.Email,
-        MobileNumber: fullBooking.CustomerID?.MobileNumber,
-      },
-    });
+    let invoiceDoc = null;
+    try {
+      invoiceDoc = await generateInvoice({
+        refType: 'CustomerPayment',
+        refId: payment._id,
+        paymentRecord: payment,
+        subscriptionPackage: {
+          name: fullBooking.SubCategoryID?.name || 'Service Booking',
+          price: payment.Amount,
+          coins: 1,
+        },
+        recipient: {
+          Name: `${fullBooking.CustomerID?.FirstName || ''} ${fullBooking.CustomerID?.LastName || ''}`.trim(),
+          Email: fullBooking.CustomerID?.Email,
+          MobileNumber: fullBooking.CustomerID?.MobileNumber,
+        },
+      });
+      console.log(`✅ Invoice generated successfully for payment ${payment._id}`);
+    } catch (invoiceErr) {
+      console.error('⚠️ Invoice generation failed:', invoiceErr.message);
+      // Continue without invoice - don't fail the payment capture
+    }
 
     // Send payment charged email with invoice
     const SENDER_NAME = process.env.SENDER_NAME || 'Technosys';
@@ -1002,7 +1011,10 @@ async function captureAndEmailPayment(booking) {
         }
       }
 
-      await transporter.sendMail({
+      // Send email in background without blocking
+      (async () => {
+        try {
+          await transporter.sendMail({
         from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
         replyTo: REPLY_TO,
         to: fullBooking.CustomerID.Email,
@@ -1092,9 +1104,13 @@ async function captureAndEmailPayment(booking) {
           </body>
           </html>
         `,
-      });
+          });
 
-      console.log(`📧 Payment capture confirmation email sent to ${fullBooking.CustomerID.Email}`);
+          console.log(`✅ Payment capture confirmation email sent to ${fullBooking.CustomerID.Email}`);
+        } catch (emailErr) {
+          console.error('❌ Payment capture email failed:', emailErr.message);
+        }
+      })().catch(err => console.error('Background payment email error:', err.message));
     }
   } catch (err) {
     console.error('❌ Error in captureAndEmailPayment:', err);

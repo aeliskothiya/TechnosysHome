@@ -34,7 +34,7 @@ export async function generateInvoice({ refType = 'SubscriptionPayment', refId, 
     let logoBuffer = null;
     
     // Skip Puppeteer for SVG conversion on production
-    const skipPuppeteerLogo = process.env.SKIP_PUPPETEER === 'true' || process.env.NODE_ENV === 'production';
+    const skipPuppeteerLogo = process.env.NODE_ENV === 'production';
     
     try {
       if (fs.existsSync(logoPngPath)) {
@@ -199,7 +199,7 @@ export async function generateInvoice({ refType = 'SubscriptionPayment', refId, 
 
     // Skip Puppeteer entirely on production/Render - use PDFKit directly
     let pdfGenerated = false;
-    const skipPuppeteer = process.env.SKIP_PUPPETEER === 'true' || process.env.NODE_ENV === 'production';
+    const skipPuppeteer = process.env.NODE_ENV === 'production';
     
     if (!skipPuppeteer) {
       try {
