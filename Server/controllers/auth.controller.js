@@ -674,15 +674,32 @@ export const sendMobileOtp = async (req, res) => {
         });
       }
 
-      // Twilio SMS
-      await twilioClient.messages.create({
-        body: `Your Technosys verification code is: ${otp}.This OTP is valid for 2 minutes.`,
-        from: process.env.TWILIO_PHONE_NUMBER,
-        to: `+91${mobile}`,
-      });
-      return res
-        .status(200)
-        .json({ success: true, message: "OTP sent successfully", mobile });
+      // Twilio SMS with graceful fallback for test/misconfigured numbers
+      const isTestNumber = String(process.env.TWILIO_PHONE_NUMBER || '').includes('1500555');
+      try {
+        await twilioClient.messages.create({
+          body: `Your Technosys verification code is: ${otp}.This OTP is valid for 2 minutes.`,
+          from: process.env.TWILIO_PHONE_NUMBER,
+          to: `+91${mobile}`,
+        });
+        return res
+          .status(200)
+          .json({ success: true, message: "OTP sent successfully", mobile });
+      } catch (twilioErr) {
+        console.error('Twilio SMS send failed:', twilioErr?.message || twilioErr);
+        // If using Twilio test number or non-production, fall back to dev response so UI can proceed
+        if (isTestNumber || (process.env.NODE_ENV && process.env.NODE_ENV.toLowerCase() !== 'production')) {
+          console.warn('Falling back to dev-mode OTP response due to Twilio error');
+          return res.status(200).json({
+            success: true,
+            message: "OTP sent successfully (Fallback - SMS skipped)",
+            otp,
+            mobile,
+            fallback: true,
+          });
+        }
+        throw twilioErr;
+      }
     } else {
       // Dev mode → return OTP
       return res.status(200).json({
@@ -1069,17 +1086,33 @@ export const sendCustomerMobileOtp = async (req, res) => {
         });
       }
 
-      // Twilio SMS
-      await twilioClient.messages.create({
-        body: `Your Technosys verification code is: ${otp}`,
-        from: process.env.TWILIO_PHONE_NUMBER,
-        to: `+91${mobile}`,
-      });
-      return res.status(200).json({
-        success: true,
-        message: "OTP sent successfully",
-        mobile
-      });
+      const isTestNumber = String(process.env.TWILIO_PHONE_NUMBER || '').includes('1500555');
+      try {
+        // Twilio SMS
+        await twilioClient.messages.create({
+          body: `Your Technosys verification code is: ${otp}`,
+          from: process.env.TWILIO_PHONE_NUMBER,
+          to: `+91${mobile}`,
+        });
+        return res.status(200).json({
+          success: true,
+          message: "OTP sent successfully",
+          mobile
+        });
+      } catch (twilioErr) {
+        console.error('Customer Twilio SMS send failed:', twilioErr?.message || twilioErr);
+        if (isTestNumber || (process.env.NODE_ENV && process.env.NODE_ENV.toLowerCase() !== 'production')) {
+          console.warn('Falling back to dev-mode OTP response for customer due to Twilio error');
+          return res.status(200).json({
+            success: true,
+            message: "OTP sent successfully (Fallback - SMS skipped)",
+            otp,
+            mobile,
+            fallback: true,
+          });
+        }
+        throw twilioErr;
+      }
     } else {
       // Dev mode → return OTP (same as technician)
       console.log("Customer OTP (Dev Mode):", otp);
